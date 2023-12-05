@@ -1,0 +1,1914 @@
+---
+title: "Criminal Expertise and Hacking Efficiency"
+subtitle: "R code"
+date: "`r Sys.Date()`"
+author: 
+  - name: Asier Moneva
+    affiliations: 
+      - name: Netherlands Institute for the Study of Crime and Law Enforcement (NSCR)
+      - name: The Hague University of Applied Sciences
+        department: Center of Expertise Cyber Security 
+    orcid: 0000-0002-2156-0213
+    email: amoneva@nscr.nl
+    corresponding: true
+  - name: Stijn Ruiter
+    affiliations: 
+      - name: Netherlands Institute for the Study of Crime and Law Enforcement (NSCR)
+      - name: Utrecht University
+        department: Department of Sociology
+    orcid: 0000-0003-2872-2710
+    email: ruiter@nscr.nl
+  - name: Daniel Meinsma
+    affiliations: 
+      - name: The Hague University of Applied Sciences
+        department: Center of Expertise Cyber Security 
+    email: d.j.meinsma@hhs.nl
+editor: source
+---
+
+```{r}
+#| label: pkgs
+#| echo: false
+#| message: false
+#| warning: false
+
+# Load packages
+{
+  library(ggseqplot)
+  library(here)
+  library(icr)
+  library(kableExtra)
+  library(knitr)
+  library(lubridate)
+  library(patchwork)
+  library(tidymodels)
+  library(tidyverse)
+  library(TraMineR)
+}
+```
+
+```{r}
+#| label: setup
+#| echo: false
+
+# Prevent chunks from echoing
+knitr::opts_chunk$set(echo = FALSE)
+
+# Set global theme for ggplot figures
+ggplot2::theme_set(theme_classic())
+
+# Prevent scientific notation
+options(scipen = 999)
+```
+
+```{r}
+#| label: import-logs
+
+# Import logs data from `.csv`
+df_logs <- read_csv(
+  file = here("Source", "osf", "logs_osf.csv"),
+  col_types = "ifTicic"
+) |> 
+  # Remove the speeder (identified later)
+  filter(user != "dDz2Dd")
+```
+
+```{r}
+#| label: import-ques
+
+# Import questionnaire data from `.csv`
+df_ques <- read_csv(
+  file = here("Source", "osf", "questionnaire_osf.csv"),
+  col_types = "iTfTfnffffffffffffffff"
+)
+
+# Remove invalid data
+df_ques <- df_ques |> 
+  mutate(timer = as.numeric(submitdate - startdate)) |> 
+  filter(
+    # Speeders (dDz2Dd: timer <= 5)
+    timer > 5,
+    # Wrong workstation (QAKJ7y, V7DwJe)
+    token != setdiff(df_ques$token, df_logs$user)[1] & token != setdiff(df_ques$token, df_logs$user)[2]
+  )
+```
+
+```{r}
+#| label: import-comm
+
+# Import the annotated commands from `.csv`
+df_comm <- read_csv(
+  file = here("Source", "osf", "commands_osf.csv"),
+  col_types = "cciifiii"
+) |> 
+  # Remove the speeder 
+  filter(user != "dDz2Dd")
+```
+
+# Introduction
+
+# Criminal expertise and the hacking process
+
+```{r}
+#| label: kill-chain
+
+# Define the variables
+v_phase_kc <- 1:7
+v_name_kc <- c("Reconnaissance", "Weaponization", "Delivery", "Exploitation", "Installation", "Command and control", "Actions on objectives")
+v_description_kc <- c("Doing research to identify and select targets.", "Attaching malware to an exploit on a deliverable.", "Transmitting the deliverable to the target.", "Triggering the malware of the deliverable.", "Fixing the malware to maintain presence inside the target.", "Establishing a channel between the controller server and the target.", "Interacting with the target further.")
+```
+
+```{r}
+#| label: tbl-kill-chain
+#| tbl-cap: The seven phases of the cyber kill chain
+
+# Arrange the variables in a table
+tibble(
+  v_phase_kc,
+  v_name_kc,
+  v_description_kc
+) |> 
+  kable(
+    col.names = c("Phase", "Label", "Description"),
+    booktabs = TRUE,
+    linesep = ""
+  ) |> 
+  footnote(
+    general = "Hutchins et al. (2011)",
+    general_title = "Source: ",
+    footnote_as_chunk = TRUE,
+    threeparttable = TRUE
+  )
+```
+
+# The present study
+
+## Hypotheses
+
+## Pre-registration
+
+## Ethical considerations
+
+# Methods
+
+## The computer lab
+
+## Study design
+
+## Participants
+
+```{r}
+#| label: demographics
+
+# Age
+age_stats <- df_ques |>  
+  mutate(age = 2021 - Q03geboortejaar) |> 
+  summarise(
+    age_mean = round(mean(age), 1),
+    age_sd = round(sd(age), 1)
+  )
+
+# Gender
+gender_stats <- df_ques |> 
+  count(Q02geslacht) |> 
+  mutate(p = round((n / nrow(df_ques)) * 100, 1))
+```
+
+## Data
+
+```{r}
+#| label: activity
+
+df_logs_ <- df_logs |> 
+  # Identify starting date-time for each group
+  mutate(
+    start_time = case_when(
+      user == "8ua9uF" ~ as_datetime("2021-09-24 11:57:00"),
+      user == "AmEJXM" ~ as_datetime("2021-09-24 11:56:00"),
+      user == "hxWBZk" ~ as_datetime("2021-09-24 12:20:00"),
+day == 24 & room == 1 & time == "morning" ~ as_datetime("2021-09-24 08:18:00"),
+      day == 24 & room == 1 & time == "afternoon" ~ as_datetime("2021-09-24 11:51:00"),
+      day == 24 & room == 2 & time == "morning" ~ as_datetime("2021-09-24 08:11:00"),
+      day == 24 & room == 2 & time == "afternoon" ~ as_datetime("2021-09-24 11:43:00"),
+      day == 1 & room == 1 & time == "morning" ~ as_datetime("2021-10-01 08:31:00"),
+      day == 1 & room == 2 & time == "morning" ~ as_datetime("2021-10-01 08:09:00"),
+      day == 1 & room == 2 & time == "afternoon" ~ as_datetime("2021-10-01 11:45:00")
+    ),
+    # Calculate the relative time for all participants
+    date_time_rel = as.numeric(date_time - start_time)
+  )
+
+# Identify user events indicating human activity
+v_event_types <- levels(df_logs_$event)
+v_event_types <- v_event_types[!(v_event_types %in% c("activity", "prg_stat", "url_stat"))]
+```
+
+```{r}
+#| label: fig-activity
+#| fig-cap: "Participants' activity during the one-hour exercise"
+#| fig-height: 8
+#| fig-width: 8
+#| fig-dpi: 500
+#| fig-format: png
+
+# Plot user activity
+fig_activity <- df_logs_ |> 
+  filter(event %in% v_event_types) |> 
+  ggplot(aes(x = date_time_rel / 60)) +
+  geom_histogram(bins = 60) +
+  scale_y_continuous(breaks = c(0, 40)) +
+  labs(
+    x = "Minutes",
+    y = "Participant\nactivity"
+  ) +
+  facet_wrap(
+    facets = vars(user), 
+    strip.position = "right", 
+    ncol = 3
+  ) +
+  theme(
+    axis.title.y = element_text(
+      angle = 0,
+      vjust = .5
+    ),
+    strip.text.y.right = element_text(angle = 0)
+  )
+print(fig_activity)
+
+# Save the plot
+ggsave(
+  filename = "fig_activity.png",
+  plot = fig_activity,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 8,
+  height = 8,
+  units = "in",
+  dpi = 500
+)
+```
+
+## Measures
+
+### A hacking efficiency index
+
+```{r}
+#| label: fun-normalize
+
+# Create a function to min-max normalize variables
+normalize_minmax <- function(x) {
+  (x - min(x)) / (max(x) - min(x))
+}
+```
+
+```{r}
+#| label: transform-irr
+
+df_comm_ <- df_comm |>  
+  mutate(
+    ckc_final_num = case_when(
+      # Replace disagreements
+      ckc_expert3_num != is.na(ckc_expert3_num) ~ ckc_expert3_num,
+      # Keep agreements
+      ckc_expert1_num == ckc_expert2_num ~ ckc_expert1_num,
+      # Override uncertainty
+      ckc_expert1_num != 8 & ckc_expert2_num == 8 ~ ckc_expert1_num,
+      ckc_expert1_num == 8 & ckc_expert2_num != 8 ~ ckc_expert2_num
+    )
+  ) |> 
+  # Fix the sequences
+  group_by(seq_group) |>   
+  mutate(seq_ = as.numeric(1:n())) |>   
+  ungroup() |>   
+  # Compile a sequence number
+  mutate(seq_final = case_when(
+    seq_group != is.na(seq_group) ~ seq_,
+    TRUE ~ seq
+  )) |>  
+  select(
+    - seq,
+    - seq_
+  )
+```
+
+```{r}
+#| label: calculate-irr
+
+# Calculate the agreement between `ckc_expert1_num` and `ckc_expert2_num`
+
+# Prepare data
+df_irr_trans <- df_comm_ |>  
+  select(ckc_expert1_num, ckc_expert2_num) |> 
+  mutate(across(everything(), ~ na_if(., 8)))
+
+# Krippendorff's alpha {icr} with non-parametric bootstrapped SE
+krip <- krippalpha(
+  data = t(df_irr_trans),
+  metric = "nominal", 
+  bootnp = TRUE, 
+  nnp = 1000
+)
+```
+
+```{r}
+#| label: sequence-data
+#| include: false
+
+# Prepare sequence data
+df_seq_ <- df_comm_ |>  
+  pivot_wider(
+    id_cols = c("user", "seq_group"),
+    names_from = seq_final,
+    values_from = ckc_final_num
+  ) |>  
+  group_by(user) |>  
+  mutate(
+    seq_n = paste0("_", 1:n()), .after = user,
+    user_ = paste0(user, seq_n)
+  ) |>  
+  ungroup()
+
+# Create sequence data
+df_seq_data <- df_seq_ |>  
+  seqdef(
+    id = df_seq_$user_,
+    var = 5:ncol(df_seq_),
+    alphabet = c("1", "2", "3", "4", "5", "6", "7", "8"),
+    states = c("reconnaisance", "weaponization", "delivery", "exploitation", "installation", "command and control", "actions on objectives"),
+    missing.color = "white"
+  )
+```
+
+```{r}
+#| label: sequence-data-grouped
+#| include: false
+
+# Prepare alternative sequence data grouped by user
+df_seq_grouped <- df_comm_ |>  
+  group_by(user) |> 
+  mutate(se_final_user = 1:n()) |> 
+  pivot_wider(
+    id_cols = "user",
+    names_from = se_final_user,
+    values_from = ckc_final_num
+  )
+
+# Create sequence data
+df_seq_data_grouped <- df_seq_grouped |>  
+  seqdef(
+    id = df_seq_grouped$user,
+    var = 2:ncol(df_seq_grouped),
+    alphabet = c("1", "2", "3", "4", "5", "6", "7", "8"),
+    states = c("reconnaisance", "weaponization", "delivery", "exploitation", "installation", "command and control", "actions on objectives"),
+    missing.color = "white"
+  )
+```
+
+```{r}
+#| label: fig-sequence
+#| message: false
+#| fig-cap: "Participants' hacking sequences according to the phases of the cyber kill chain"
+#| fig-height: 10
+#| fig-width: 8
+#| fig-dpi: 500
+
+# Visualize sequences
+fig_seq <- ggseqiplot(
+  seqdata = df_seq_data,
+  border = TRUE,
+  sortv = "from.start",
+  linetype = 2
+) +
+  scale_fill_manual(
+    values = c("#FDE725FF", "#8FD744FF", "#35B779FF", "#21908CFF", "#31688EFF", "white"),
+    labels = c("Missing" = "unclear")
+  ) +
+  labs(
+    title = "Sequences",
+    x = "Cyber kill chain phases over time (60 min.)",
+    y = NULL
+  )
+print(fig_seq)
+
+# Save the plot
+ggsave(
+  filename = "fig_sequences.png",
+  plot = fig_seq,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 8,
+  height = 10,
+  units = "in",
+  dpi = 500
+)
+```
+
+```{r}
+#| label: seq-stats
+#| message: false
+
+# Sequence length
+v_seq_length <- df_comm_ |> 
+  group_by(
+    user, 
+    seq_group
+  ) |> 
+  summarize(max = max(seq_final)) |> 
+  ungroup() |> 
+  pull(max)
+
+# Summary stats for number of sequences per participant
+df_seq_summary <- df_seq_ |> 
+  mutate(seq_num = as.numeric(str_extract(
+    string = seq_n, 
+    pattern = "[:digit:]"
+    ))) |> 
+  summarize(
+    min = min(seq_num),
+    mean = round(mean(seq_num), 1),
+    sd = round(sd(seq_num), 1),
+    max = max(seq_num)
+  )
+```
+
+```{r}
+#| label: seq-fake
+#| include: false
+
+# Best scenario
+# efficiency_nor = 1 (df_theoretical_seq[22876, ])
+seq_fake_best <- 1:7
+# Worst scenario
+# efficiency_nor = 0 (`df_theoretical_seq[118000, ]`)
+seq_fake_worst <- c(2, 1, 1, 2, 1, 2, 1)
+
+# Lowest normalized proportion of visited states
+# visitp_nor = 0 (`df_theoretical_seq[1, ])
+seq_fake_lowest_pvisit <- rep(1, times = 7)
+
+# Lowest normalized inverted recurrence (`df_theoretical_seq[17158]`)
+seq_fake_lowest_recu <- c(1, 2, 1, 2, 1, 2, 1)
+
+# Lowest normalized degradation 
+# degrad_nor = 0 (`df_theoretical_seq[117650, ]`)
+seq_fake_lowest_degrad <- c(2, 1, 1, 1, 1, 1, 1)
+
+# Random sequence pooled from the actual sample
+set.seed(10)
+seq_fake_random <- sample(x = df_comm_$ckc_final_num, size = 7, replace = FALSE)
+seq_fake_random[seq_fake_random == 8] <- NA
+
+# Arrange a tibble with all the fake sequences
+df_fake_seq <- tibble(
+  seq_fake_random,
+  seq_fake_lowest_degrad,
+  seq_fake_lowest_recu,
+  seq_fake_lowest_pvisit,
+  seq_fake_worst,
+  seq_fake_best
+)
+
+# Transform the fake sequences to sequence data
+df_fake_seq_ <- seqdef(
+  data = t(df_fake_seq),
+  alphabet = c("1", "2", "3", "4", "5", "6", "7", "8"),
+  states = c("reconnaisance", "weaponization", "delivery", "exploitation", "installation", "command and control", "actions on objectives")
+)
+```
+
+```{r}
+#| label: indic-fake
+
+# Analyze data
+df_fake_indicators <- as_tibble(seqindic(
+  seqdata = df_fake_seq_,
+  indic = c("visitp", "recu", "degrad", "lgth"),
+  with.missing = FALSE,
+  prec.args = list(pow = FALSE)
+)) |> 
+  filter(Recu != is.nan(Recu)) |>  
+  mutate(
+    # Rename sequence length
+    length = Lgth,
+    # Normalize the proportion of visited states
+    visitp_nor = normalize_minmax(Visitp),
+    # Invert the recurrence index
+    recu_inv = 1 / Recu,
+    recu_inv_nor = normalize_minmax(recu_inv),
+    # Normalize the degradation index
+    # `seqidegrad(penalized = "BOTH")
+    degrad_nor = normalize_minmax(Degrad),
+    efficiency = (visitp_nor + recu_inv_nor + degrad_nor) / 3,
+    efficiency_nor = normalize_minmax(efficiency)
+  )
+```
+
+```{r}
+#| label: fig-fake
+#| message: false
+#| fig-cap: "Example synthetic sequences with efficiency scores"
+#| fig-height: 4
+#| fig-width: 8
+#| fig-dpi: 500
+
+# Visualize fake sequences
+fig_seq_fake <- ggseqiplot(
+  seqdata = df_fake_seq_,
+  border = TRUE
+) +
+  scale_fill_manual(
+    values = c("#FDE725FF", "#8FD744FF", "#35B779FF", "#21908CFF", "#31688EFF", "#443A83FF", "#440154FF", "white"),
+    labels = c("Missing" = "unclear")
+  ) +
+  scale_y_discrete() +
+  scale_x_discrete(
+    labels = 1:7, 
+    expand = c(0, 10, 0, 3)
+  ) +
+  annotate(
+    geom = "text",
+    x = rep(0, times = 6),
+    y = 1:6,
+    label = c("random sample", "lowest normalized degradation ", "lowest normalized inverted recurrence", "lowest normalized proportion of visited states", "worst scenario", "best scenario"),
+    hjust = 1
+  ) +
+  annotate(
+    geom = "text",
+    x = rep(8, times = 6),
+    y = 1:6,
+    label = round(df_fake_indicators$efficiency_nor, 3),
+    hjust = 0
+  ) +
+  annotate(
+    geom = "text",
+    x = 8.5,
+    y = 7.5,
+    label = "Normalized\nefficiency"
+  ) +
+  labs(
+    x = "Cyber kill chain phases over time",
+    y = NULL
+  )
+print(fig_seq_fake)
+
+# Save the plot
+ggsave(
+  filename = "fig_fake_seq.png",
+  plot = fig_seq_fake,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 8,
+  height = 4,
+  units = "in",
+  dpi = 500
+)
+```
+
+```{r}
+#| label: sequence-indic
+
+# Analyze data
+df_indicators <- as_tibble(seqindic(
+    seqdata = df_seq_data,
+  # Indicators:
+  # The proportion of visited states (Brzinsky-Fay, 2007); 
+  # The recurrence index (Pelletier et al., 2020); and
+  # The degradation index (Ritschard, 2021).
+  indic = c("visitp", "recu", "degrad", "lgth"),
+  with.missing = FALSE,
+  prec.args = list(pow = FALSE)
+)) |> 
+  filter(Recu != is.nan(Recu)) |>  
+  mutate(
+    # Rename sequence length
+    length = Lgth,
+    # Normalize the proportion of visited states
+    visitp_nor = normalize_minmax(Visitp),
+    # Invert the recurrence index
+    recu_inv = 1 / Recu,
+    recu_inv_nor = normalize_minmax(recu_inv),
+    # Normalize the degradation index
+    # `seqidegrad(penalized = "BOTH")
+    degrad_nor = normalize_minmax(Degrad),
+  ) |> 
+  # Add user column to the indicators
+  bind_cols(df_seq_ |> select(user, user_) |> filter(user_ != "v2AQfU_2"))
+
+# Produce individual measures of efficiency
+df_indicators_ <- df_indicators |>  
+  group_by(user) |> 
+  summarise(
+    length_sum = sum(length),
+    visitp_nor_m = mean(visitp_nor),
+    recu_inv_nor_m = mean(recu_inv_nor),
+    degrad_nor_m = mean(degrad_nor),
+  ) |>  
+  ungroup()
+```
+
+```{r}
+#| label: sequence-indic-grouped
+
+# Analyze data
+df_indicators_grouped <- as_tibble(seqindic(
+    seqdata = df_seq_data_grouped,
+  # Indicators:
+  # The proportion of visited states (Brzinsky-Fay, 2007); 
+  # The recurrence index (Pelletier et al., 2020); and
+  # The degradation index (Ritschard, 2021).
+  indic = c("visitp", "recu", "degrad", "lgth"),
+  with.missing = FALSE,
+  prec.args = list(pow = FALSE)
+)) |> 
+  filter(Recu != is.nan(Recu)) |>  
+  mutate(
+    # Rename sequence length
+    length = Lgth,
+    # Normalize the proportion of visited states
+    visitp_nor = normalize_minmax(Visitp),
+    # Invert the recurrence index
+    recu_inv = 1 / Recu,
+    recu_inv_nor = normalize_minmax(recu_inv),
+    # Normalize the degradation index
+    # `seqidegrad(penalized = "BOTH")
+    degrad_nor = normalize_minmax(Degrad),
+  ) |> 
+  # Add user column to the indicators
+  bind_cols(df_seq_grouped |> select(user))
+
+# Select the measures of efficiency
+df_indicators_grouped_ <- df_indicators_grouped |>  
+  select(
+    user,
+    visitp_nor,
+    recu_inv_nor,
+    degrad_nor,
+    length
+  )
+```
+
+```{r}
+#| label: efficiency-data
+
+df_efficiency <- df_indicators_ |>
+  inner_join(df_indicators_grouped_, by = "user") |> 
+  select(
+    user,
+    visitp_nor,
+    recu_inv_nor_m,
+    degrad_nor_m,
+    length_sum
+  ) |> 
+  # Average the three relevant measures to calculate efficiency
+  mutate(
+    efficiency = (visitp_nor + recu_inv_nor_m + degrad_nor_m) / 3,
+    efficiency_nor = normalize_minmax(efficiency)
+  )
+```
+
+```{r}
+#| label: cor-efficiency
+
+# Calculate the correlation between:
+
+# Proportion of visited states and inverted recurrence
+cor_vis_rec <- cor.test(
+  x = df_efficiency$visitp_nor, 
+  y = df_efficiency$recu_inv_nor_m,
+  method = "pearson"
+)
+
+# Proportion of visited states and normalized degradation
+cor_vis_deg <- cor.test(
+  x = df_efficiency$visitp_nor, 
+  y = df_efficiency$degrad_nor_m,
+  method = "pearson"
+)
+
+# Inverted recurrence and normalized degradation
+cor_rec_deg <- cor.test(
+  x = df_efficiency$recu_inv_nor_m, 
+  y = df_efficiency$degrad_nor_m,
+  method = "pearson"
+)
+```
+
+```{r}
+#| label: fig-visitp
+#| warning: false
+
+# Declare the mean and standard deviation of proportion of visited states
+mean_visitp <- mean(df_efficiency$visitp_nor)
+sd_visitp <- sd(df_efficiency$visitp_nor)
+
+# Plot the proportion of visited states distribution
+fig_visitp <- df_efficiency |>  
+  ggplot(mapping = aes(x = visitp_nor)) +
+  geom_histogram(
+    binwidth = .1,
+    boundary = 0
+  ) +
+  # Add lines for summary stats
+  geom_vline(
+    # Lower boundary of SD is out of bounds and causes a warning
+    xintercept = c(mean_visitp, mean_visitp - sd_visitp, mean_visitp + sd_visitp),
+    linetype = c(2, 3, 3)
+    ) +
+  annotate(
+    geom = "text",
+    x = c(mean_visitp + .1, mean_visitp + sd_visitp + .1),
+    y = c(40, 30),
+    label = c("italic(M) == 0.17", "italic(SD) == 0.25"),
+    parse = TRUE,
+    size = 3
+    ) +
+  scale_x_continuous(
+    breaks = seq(0, 1, by = .1),
+    limits = c(0, 1)
+  ) +
+  labs(
+    title = "Normalized proportion of visited states",
+    x = "Score",
+    y = NULL
+  )
+# print(fig_visitp)
+
+# Save the plot
+ggsave(
+  filename = "fig_visitp.png",
+  plot = fig_visitp,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 4,
+  height = 2,
+  units = "in",
+  dpi = 500
+)
+```
+
+```{r}
+#| label: fig-recu-inv
+
+# Declare the mean and standard deviation of inverted recurrence
+mean_recu_inv <- mean(df_efficiency$recu_inv_nor_m)
+sd_recu_inv <- sd(df_efficiency$recu_inv_nor_m)
+
+# Plot the inverted recurrence states distribution
+fig_recu_inv <- df_efficiency |>  
+  ggplot(mapping = aes(x = recu_inv_nor_m)) +
+  geom_histogram(
+    binwidth = .1,
+    boundary = 0
+  ) +
+  # Add lines for summary stats
+  geom_vline(
+    xintercept = c(mean_recu_inv, mean_recu_inv - sd_recu_inv, mean_recu_inv + sd_recu_inv),
+    linetype = c(2, 3, 3)
+    ) +
+  annotate(
+    geom = "text",
+    x = c(mean_recu_inv + .1, mean_recu_inv + sd_recu_inv + .1),
+    y = c(12, 10),
+    label = c("italic(M) == 0.53", "italic(SD) == 0.27"),
+    parse = TRUE,
+    size = 3
+    ) +
+  scale_x_continuous(
+    breaks = seq(0, 1, by = .1),
+    limits = c(0, 1)
+  ) +
+  labs(
+    title = "Normalized inverted recurrence",
+    x = "Score",
+    y = NULL
+  )
+
+# Save the plot
+ggsave(
+  filename = "fig_recu_inv.png",
+  plot = fig_recu_inv,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 4,
+  height = 2,
+  units = "in",
+  dpi = 500
+)
+```
+
+```{r}
+#| label: fig-degrad-nor
+
+# Declare the mean and standard deviation of normalized degradation
+mean_degrad_nor <- mean(df_efficiency$degrad_nor_m)
+sd_degrad_nor <- sd(df_efficiency$degrad_nor_m)
+
+# Plot the normalized degradation distribution
+fig_degrad_nor <- df_efficiency |>  
+  ggplot(mapping = aes(x = degrad_nor_m)) +
+  geom_histogram(
+    binwidth = .1,
+    boundary = 0
+  ) +
+  # Add lines for summary stats
+  geom_vline(
+    xintercept = c(mean_degrad_nor, mean_degrad_nor - sd_degrad_nor, mean_degrad_nor + sd_degrad_nor),
+    linetype = c(2, 3, 3)
+    ) +
+  annotate(
+    geom = "text",
+    x = c(mean_degrad_nor + .1, mean_degrad_nor + sd_degrad_nor + .1),
+    y = c(30, 20),
+    label = c("italic(M) == 0.50", "italic(SD) == 0.14"),
+    parse = TRUE,
+    size = 3
+    ) +
+  scale_x_continuous(
+    breaks = seq(0, 1, by = .1),
+    limits = c(0, 1)
+  ) +
+  labs(
+    title = "Normalized degradation",
+    x = "Score",
+    y = NULL
+  ) 
+
+# Save the plot
+ggsave(
+  filename = "fig_degrad_nor.png",
+  plot = fig_degrad_nor,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 4,
+  height = 2,
+  units = "in",
+  dpi = 500
+)
+```
+
+```{r}
+#| label: fig-efficiency
+#| fig.height: 2
+#| fig.width: 4
+#| fig.cap: "Distribution of participants' hacking efficiency"
+
+# Declare the mean and standard deviation of efficiency
+mean_efficiency <- mean(df_efficiency$efficiency_nor)
+sd_efficiency <- sd(df_efficiency$efficiency_nor)
+
+# Plot the efficiency distribution
+fig_efficiency <- df_efficiency |>  
+  ggplot(mapping = aes(x = efficiency_nor)) +
+  geom_histogram(
+    binwidth = .1,
+    boundary = 0
+  ) +
+  # Add lines for summary stats
+  geom_vline(
+    xintercept = c(mean_efficiency, mean_efficiency - sd_efficiency, mean_efficiency + sd_efficiency),
+    linetype = c(2, 3, 3)
+    ) +
+  annotate(
+    geom = "text",
+    x = c(mean_efficiency + .1, mean_efficiency + sd_efficiency + .1),
+    y = c(12, 10),
+    label = c("italic(M) == 0.38", "italic(SD) == 0.24"),
+    parse = TRUE,
+    size = 3
+    ) +
+  scale_x_continuous(
+    breaks = seq(0, 1, by = .1),
+    limits = c(0, 1)
+  ) +
+  labs(
+    title = "Normalized efficiency",
+    x = "Score",
+    y = NULL
+  )
+
+# Save the plot
+ggsave(
+  filename = "fig_efficiency.png",
+  plot = fig_efficiency,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 4,
+  height = 2,
+  units = "in",
+  dpi = 500
+)
+```
+
+```{r}
+#| label: fig-indices
+#| warning: false
+#| fig-cap: "Distribution of participants' hacking efficiency indices (a, b, c), and hacking efficiency (d)"
+#| fig-height: 6
+#| fig-width: 8
+#| fig-dpi: 500
+
+# Assemble all plots in one figure
+fig_indices <- fig_visitp + fig_recu_inv + fig_degrad_nor + fig_efficiency +
+  plot_annotation(tag_levels = "a")
+print(fig_indices)
+
+# Save the plot
+ggsave(
+  filename = "fig_indices.png",
+  plot = fig_indices,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 8,
+  height = 4,
+  units = "in",
+  dpi = 500
+)
+```
+
+```{r}
+#| label: fig-observed-rel
+#| include: false
+#| message: false
+#| warning: false
+#| fig-cap: "Relationship between the three efficiency indicators, sequence length, and efficiency"
+#| fig-heigth: 4
+#| fig-width: 8
+#| fig-dpi: 500
+
+# Create a plot for each pair of variables to understand how the indicators and sequence length behave
+fig_observed_rel <- df_efficiency |>
+  select(
+    visitp_nor,
+    recu_inv_nor_m,
+    degrad_nor_m,
+    efficiency_nor,
+    length_sum
+  ) |> 
+  filter(recu_inv_nor_m != 1) |>
+  GGally::ggpairs(
+    mapping = aes(alpha = .1),
+    columnLabels = c("Normalized proportion of visited states", "Normalized inverted recurrence", "Normalized degradation", "Normalized efficiency", "Sequence length"),
+    labeller = label_wrap_gen(width = 20)
+  ) +
+  scale_x_continuous(labels = function(x) as.character(x)) +
+  scale_y_continuous(labels = function(x) as.character(x)) +
+  theme(strip.text.y.right = element_text(angle = 0))
+print(fig_observed_rel)
+
+# Save the plot
+ggsave(
+  filename = "fig_observed_rel.png",
+  plot = fig_observed_rel,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 8,
+  height = 4,
+  units = "in",
+  dpi = 500
+)
+```
+
+### Objective IT-Skills
+
+```{r}
+#| label: correct-answers
+
+# Label correct and incorrect answers
+df_ques_ <- df_ques |> 
+  mutate(
+    Q08skill01_answer = case_when(
+      Q08skill01 == "PDFCreator.exe" ~ 1,
+      Q08skill01 == "Weet ik niet" | is.na(Q08skill01) ~ 0,
+      .default = -.25
+    ),
+    Q09skill02_answer = case_when(
+      Q09skill02 == "De encoding die gebruikt is: base64. Zonder deze encoding staat er: “base64 natuurlijk!”" ~ 1,
+      Q09skill02 == "Weet ik niet" | is.na(Q09skill02) ~ 0,
+      .default = -.25
+    ),
+    Q10skill03_answer = case_when(
+      Q10skill03 == "Apparaat 1 is een Breedband modem; Apparaat 2 is een Draadloze router; Apparaat 3 is een Draadloze printerserver" ~ 1,
+      Q10skill03 == "Weet ik niet" | is.na(Q10skill03) ~ 0,
+      .default = -.25
+    ),
+    Q11skill04_answer = case_when(
+      Q11skill04 == "Geen van bovenstaande antwoorden is correct" | Q11skill04 == "In de MySQL database “mysql”" ~ 1,
+      Q11skill04 == "Weet ik niet" | is.na(Q11skill04) ~ 0,
+      .default = -.25
+    ),
+    Q12skill05_answer = case_when(
+      Q12skill05 == "info@bedrijfx.nl" | Q12skill05 == "info@bedrijfx" ~ 1,
+      Q12skill05 == "Weet ik niet" | is.na(Q12skill05) ~ 0,
+      .default = -.25
+    ),
+    Q13skill06_answer = case_when(
+      Q13skill06 == "Statement 1 is juist" | Q13skill06 == "Statement 1 en 2 zijn juist" ~ 1,
+      Q13skill06 == "Weet ik niet" | is.na(Q13skill06) ~ 0,
+      .default = -.25
+    ),
+    Q14skill07_answer = case_when(
+      Q14skill07 == "Alle mappen ‘inpakken’ in een ‘.zip’ map, die map selecteren en klikken op insert" ~ 1,
+      Q14skill07 == "Weet ik niet" | is.na(Q14skill07) ~ 0,
+      .default = -.25
+    ),
+    Q15skill08_answer = case_when(
+      Q15skill08 == "https://www.webshop.nl/secure" ~ 1,
+      Q15skill08 == "Weet ik niet" | is.na(Q15skill08) ~ 0,
+      .default = -.25
+    ),
+    Q16skill09_answer = case_when(
+      Q16skill09 == "URL > DNS > IP" ~ 1,
+      Q16skill09 == "Weet ik niet" | is.na(Q16skill09) ~ 0,
+      .default = -.25
+    ),
+    Q17skill10_answer = case_when(
+      Q17skill10 == "SEH" ~ 1,
+      Q17skill10 == "Weet ik niet" | is.na(Q17skill10) ~ 0,
+      .default = -.25
+    ),
+    # Calculate IT-skills
+    itskills = Q08skill01_answer + Q09skill02_answer + Q10skill03_answer + Q11skill04_answer + Q12skill05_answer + Q13skill06_answer + Q14skill07_answer + Q15skill08_answer + Q16skill09_answer + Q17skill10_answer
+  )
+```
+
+```{r}
+#| label: fig-itskills
+#| warning: false
+#| fig-cap: "Distribution of participants' IT-skills scores"
+#| fig-height: 2
+#| fig-width: 4
+#| fig-dpi: 500
+
+# Declare the mean and standard deviation of IT-skills
+mean_itskills <- mean(df_ques_$itskills)
+sd_itskills <- sd(df_ques_$itskills)
+
+# Plot the IT-skills distribution
+fig_itskills <- df_ques_ |>  
+  ggplot(mapping = aes(x = itskills)) +
+  geom_histogram(
+    bins = 10,
+    binwidth = 1
+  ) +
+  # Add lines for summary stats
+  geom_vline(
+    xintercept = c(mean_itskills, mean_itskills - sd_itskills, mean_itskills + sd_itskills),
+    linetype = c(2, 3, 3)
+    ) +
+  annotate(
+    geom = "text",
+    x = c(mean_itskills + 1, mean_itskills + sd_itskills + 1),
+    y = c(17, 12),
+    label = c("italic(M) == 5.1", "italic(SD) == 1.7"),
+    parse = TRUE,
+    size = 3
+    ) +
+  scale_x_continuous(
+    breaks = seq(-2.5, 10, by = 2.5),
+    limits = c(-2.5, 10)
+  ) +
+  labs(
+    title = "IT skills",
+    x = "Score",
+    y = NULL
+  )
+# Present the plot
+print(fig_itskills)
+
+# Save the plot
+ggsave(
+  filename = "fig_itskills.png",
+  plot = fig_itskills,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 4,
+  height = 2,
+  units = "in",
+  dpi = 500
+)
+```
+
+### Self-reported hacking experience
+
+```{r}
+#| label: hacking-exp
+
+# Calculate hacking experience
+df_ques_ <- df_ques_ |>  
+  rename(
+    hack_brute = "Q19overtreden[S01]",
+    hack_access = "Q19overtreden[S02]",
+    hack_control = "Q19overtreden[S03]",
+    hack_deface = "Q19overtreden[S04]",
+    hack_crack = "Q19overtreden[S05]"
+  ) |>  
+  mutate(
+    across(
+      .cols = hack_brute:hack_crack,
+      ~ case_when(
+        . == "0 keer" ~ 0,
+        . == "1 keer" ~ 1,
+        . == "2 keer" ~ 2,
+        . == "3 keer" ~ 3,
+        . == "4 keer" ~ 4,
+        . == "5 of meer keer" ~ 5,
+        TRUE ~ 0
+      )
+    ),
+    hacking_exp = hack_brute + hack_access + hack_control + hack_deface + hack_crack,
+    hacking_exp_dic = if_else(
+      condition = hacking_exp > 0,
+      true = 1,
+      false = 0
+    )
+  )
+```
+
+```{r}
+#| label: fig-experience-dic
+#| fig-cap: "Distribution of participants' cyber offending and hacking experience"
+#| fig-height: 2
+#| fig-width: 4
+#| fig-dpi: 500
+
+# Declare the mean and standard deviation of education_dic
+mean_hacking_exp_dic <- mean(df_ques_$hacking_exp_dic)
+sd_hacking_exp_dic <- sd(df_ques_$hacking_exp_dic)
+
+# Plot its distribution
+fig_hacking_exp_dic <- df_ques_ |> 
+  count(hacking_exp_dic) |> 
+  mutate(
+    p = round((n / sum(n)) * 100, 2),
+    p_ = paste0(p, "%")
+  ) |> 
+  ggplot(mapping = aes(
+    x = hacking_exp_dic,
+    y = n,
+    label = p_
+  )) +
+  geom_col() +
+  geom_text(
+    vjust = - 1, 
+    size = 3
+  ) +
+  scale_y_continuous(limits = c(0, 65)) +
+  scale_x_continuous(
+    breaks = c(0, 1),
+    labels = c("no", "yes")
+  ) +
+  labs(
+    title = "Hacking experience",
+    x = NULL,
+    y = NULL
+  )
+print(fig_hacking_exp_dic)
+
+# Save the plot
+ggsave(
+  filename = "fig_hacking_exp_dic.png",
+  plot = fig_hacking_exp_dic,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 4,
+  height = 2,
+  units = "in",
+  dpi = 500
+)
+```
+
+```{r}
+#| label: fig-experience
+#| include: false
+#| warning: false
+#| fig-cap: "Distribution of participants' cyber offending and hacking experience"
+#| fig-height: 2
+#| fig-width: 4
+#| fig-dpi: 500
+
+# Declare the mean and standard deviation of hacking experience
+mean_hacking_exp <- mean(df_ques_$hacking_exp)
+sd_hacking_exp <- sd(df_ques_$hacking_exp)
+
+# Plot its distribution
+fig_hacking_exp <- df_ques_ |> 
+  ggplot(mapping = aes(x = hacking_exp)) +
+  geom_histogram(binwidth = 1) +
+  geom_vline(
+    xintercept = c(mean_hacking_exp,mean_hacking_exp + sd_hacking_exp),
+    linetype = c(2, 3)
+    ) +
+  annotate(
+    geom = "text",
+    x = c(mean_hacking_exp + 1, mean_hacking_exp + sd_hacking_exp + 1.5),
+    y = c(40, 30),
+    label = c("italic(M) == 0.8", "italic(SD) == 2.1"),
+    parse = TRUE,
+    size = 3
+    ) +
+  scale_y_continuous(limits = c(0, 60)) +
+  labs(
+    x = "Score",
+    y = NULL
+  )
+print(fig_hacking_exp)
+
+# Save the plot
+ggsave(
+  filename = "fig_hacking_exp.png",
+  plot = fig_hacking_exp,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 4,
+  height = 2,
+  units = "in",
+  dpi = 500
+)
+```
+
+### Control variables
+
+```{r}
+#| label: control-var
+
+df_ques_ <- df_ques_ |> 
+  mutate(
+    age = 2021 - Q03geboortejaar,
+    education_dic = if_else(
+      condition = Q05opleidingsrich == "Informatica en ICT",
+      true = 1,
+      false = 0
+    )
+  )
+```
+
+```{r}
+#| label: fig-age
+#| fig-cap: "Distribution of participants' age"
+#| fig-height: 2
+#| fig-width: 4
+#| fig-dpi: 500
+
+# Declare the mean and standard deviation of age
+mean_age <- mean(df_ques_$age)
+sd_age <- sd(df_ques_$age)
+
+# Plot its distribution
+fig_age <- df_ques_ |> 
+  ggplot(mapping = aes(x = age)) +
+  geom_histogram(binwidth = 1) +
+  geom_vline(
+    xintercept = c(mean_age, mean_age - sd_age, mean_age + sd_age),
+    linetype = c(2, 3, 3)
+    ) +
+  annotate(
+    geom = "text",
+    x = c(mean_age + 1.5, mean_age + sd_age + 1.5),
+    y = c(15, 10),
+    label = c("italic(M) == 21.01", "italic(SD) == 2.77"),
+    parse = TRUE,
+    size = 3
+    ) +
+  scale_y_continuous() +
+  labs(
+    title = "Age",
+    x = "Score",
+    y = NULL
+  )
+
+# Save the plot
+ggsave(
+  filename = "fig_age.png",
+  plot = fig_age,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 4,
+  height = 2,
+  units = "in",
+  dpi = 500
+)
+```
+
+```{r}
+#| label: fig-education
+#| fig-cap: "Distribution of participants' education"
+#| fig-height: 2
+#| fig-width: 4
+#| fig-dpi: 500
+
+# Declare the mean and standard deviation of education_dic
+mean_education_dic <- mean(df_ques_$education_dic)
+sd_education_dic <- sd(df_ques_$education_dic)
+
+# Plot its distribution
+fig_education_dic <- df_ques_ |> 
+  count(education_dic) |> 
+  mutate(
+    p = round((n / sum(n)) * 100, 2),
+    p_ = paste0(p, "%")
+  ) |> 
+  ggplot(mapping = aes(
+    x = education_dic,
+    y = n,
+    label = p_
+  )) +
+  geom_col() +
+  geom_text(
+    vjust = - 1, 
+    size = 3
+  ) +
+  scale_y_continuous(limits = c(0, 45)) +
+  scale_x_continuous(
+    breaks = c(0, 1),
+    labels = c("other", "informatics and IT")
+  ) +
+  labs(
+    title = "Education",
+    x = NULL,
+    y = NULL
+  )
+
+# Save the plot
+ggsave(
+  filename = "fig_education_dic.png",
+  plot = fig_education_dic,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 4,
+  height = 2,
+  units = "in",
+  dpi = 500
+)
+```
+
+```{r}
+#| label: fig-length
+#| fig.height: 2
+#| fig.width: 4
+#| fig.cap: "Distribution of participants' sequence length"
+
+# Declare the mean and standard deviation of efficiency
+mean_length_sum <- mean(df_efficiency$length_sum)
+sd_length_sum <- sd(df_efficiency$length_sum)
+
+# Plot the efficiency distribution
+fig_length_sum <- df_efficiency |>  
+  ggplot(mapping = aes(x = length_sum)) +
+  geom_histogram(
+    bins = 10,
+    boundary = 0
+  ) +
+  # Add lines for summary stats
+  geom_vline(
+    xintercept = c(mean_length_sum, mean_length_sum - sd_length_sum, mean_length_sum + sd_length_sum),
+    linetype = c(2, 3, 3)
+    ) +
+  annotate(
+    geom = "text",
+    x = c(mean_length_sum + 17, mean_length_sum + sd_length_sum + 18),
+    y = c(25, 12),
+    label = c("italic(M) == 40.99", "italic(SD) == 27.59"),
+    parse = TRUE,
+    size = 3
+    ) +
+  labs(
+    title = "Sequence length",
+    x = "Score",
+    y = NULL
+  )
+
+# Save the plot
+ggsave(
+  filename = "fig_length_sum.png",
+  plot = fig_length_sum,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 4,
+  height = 2,
+  units = "in",
+  dpi = 500
+)
+```
+
+```{r}
+#| label: fig-controls
+#| fig-cap: "Distribution of participants' age (a), education (b), and sequence length (c)"
+#| fig-height: 4
+#| fig-width: 8
+#| fig-dpi: 500
+
+# Assemble all plots in one figure
+fig_controls <- fig_age + fig_education_dic + fig_length_sum +
+  plot_annotation(tag_levels = "a") +
+  plot_layout(nrow = 2)
+print(fig_controls)
+
+# Save the plot
+ggsave(
+  filename = "fig_controls.png",
+  plot = fig_controls,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 8,
+  height = 4,
+  units = "in",
+  dpi = 500
+)
+```
+
+## Analytic strategy
+
+# Results
+
+```{r}
+#| label: merge-df-efficiency-ques
+
+# Create a data frame with the variables to model
+df_analysis <- df_ques_ |> 
+  rename(user = token) |>  
+  full_join(df_efficiency, by = "user") |> 
+  select(
+    user,
+    age,
+    education_dic,
+    itskills,
+    hacking_exp_dic,
+    visitp_nor,
+    recu_inv_nor_m,
+    degrad_nor_m,
+    efficiency_nor,
+    length_sum
+  ) 
+```
+
+```{r}
+#| label: tidy-model-efficiency
+
+# Create the model
+model_eff <- linear_reg()
+# Create recipe
+recipe_eff <- recipe(
+  data = df_analysis, 
+  formula = efficiency_nor ~
+    itskills +
+    hacking_exp_dic +
+    age +
+    education_dic +
+    length_sum
+) |> 
+  step_normalize(
+    all_predictors(), 
+    all_outcomes()
+  )
+# Run the model
+results_eff <- workflow() |> 
+  add_model(model_eff) |> 
+  add_recipe(recipe_eff) |> 
+  fit(df_analysis)
+```
+
+```{r}
+#| label: tbl-model
+#| tbl-cap: OLS model results
+
+tbl_model <- results_eff |> 
+  tidy(conf.int = TRUE) |> 
+  mutate(
+    p.value.1t = p.value / 2,
+    across(
+      .cols = where(is.numeric), 
+      .fns = ~ round(.x, digits = 3)
+    )
+  ) |> 
+  mutate(
+    term = case_when(
+      term == "age" ~ "Age",
+      term == "itskills" ~ "IT skills",
+      term == "hacking_exp_dic" ~ "Hacking experience",
+      term == "education_dic" ~ "IT education",
+      term == "length_sum" ~ "Sequence length",
+      .default = term
+    ),
+    ci_95 = paste0("[", conf.low, ", ", conf.high, "]")
+  ) |> 
+  select(
+    term:estimate,
+    ci_95,
+    p.value.1t
+  )
+
+tbl_model |> 
+  kable(
+    col.names = c("Variable", "Standardized $\\beta$", "[95% CI]", "One-tailed p-value"),
+    booktabs = TRUE,
+    linesep = ""
+  )
+```
+
+# Discussion
+
+## Theoretical contribution
+
+## Limitations
+
+## Future research directions
+
+# Appendix A {#sec-app-a}
+
+```{r}
+#| label: tbl-scenarios
+#| tbl-cap: Theoretical scenarios resulting from the combination of the three efficiency indicators
+
+# Create the columns of the table
+v_scenario_num <- 1:8
+v_visitp <- c("high", "high", "high", "low", "high", "low", "low", "low")
+v_recu <- c("high", "high", "low", "high", "low", "high", "low", "low")
+v_degrad <- c("high", "low", "high", "high", "low", "low", "high", "low")
+v_scenario_chr <- c("efficient", "reversed", "persistent", "careful", "chaotic", "lucky", "stuck", "inefficient")
+v_efficiency_conditions <- c(3, 2, 2, 2, 1, 1, 1, 0)
+
+# Assemble all columns in one table
+tibble(
+  v_scenario_num,
+  v_visitp,
+  v_recu,
+  v_degrad,
+  v_scenario_chr,
+  v_efficiency_conditions
+) |> 
+  kable(
+    col.names = c("Scenario", "Normalized proportion of visited states", "Normalized inverted recurrence", "Normalized degradation", "Label", "Efficiency conditions met"),
+    booktabs = TRUE,
+    linesep = ""
+  ) |> 
+  column_spec(column = c(2:4, 6), width = "3cm")
+```
+
+```{r}
+#| label: possible-scenarios
+#| message: false
+#| cache: true
+
+# Declare sequence lengths to be examined
+v_lengths <- 1:7
+
+# Create all possible combinations for sequences of lengths 1:7 by crossing their values
+# Length 1
+{
+  df_theoretical_seq_1 <- crossing(
+    phase_1 = v_lengths, 
+    phase_2 = NA_integer_, 
+    phase_3 = NA_integer_, 
+    phase_4 = NA_integer_,
+    phase_5 = NA_integer_,
+    phase_6 = NA_integer_,
+    phase_7 = NA_integer_
+  ) 
+  # Length 2
+  df_theoretical_seq_2 <- crossing(
+    phase_1 = v_lengths, 
+    phase_2 = v_lengths, 
+    phase_3 = NA_integer_, 
+    phase_4 = NA_integer_,
+    phase_5 = NA_integer_,
+    phase_6 = NA_integer_,
+    phase_7 = NA_integer_
+  ) 
+  # Length 3
+  df_theoretical_seq_3 <- crossing(
+    phase_1 = v_lengths, 
+    phase_2 = v_lengths, 
+    phase_3 = v_lengths, 
+    phase_4 = NA_integer_,
+    phase_5 = NA_integer_,
+    phase_6 = NA_integer_,
+    phase_7 = NA_integer_
+  ) 
+  # Length 4
+  df_theoretical_seq_4 <- crossing(
+    phase_1 = v_lengths, 
+    phase_2 = v_lengths, 
+    phase_3 = v_lengths, 
+    phase_4 = v_lengths,
+    phase_5 = NA_integer_,
+    phase_6 = NA_integer_,
+    phase_7 = NA_integer_
+  ) 
+  # Length 5
+  df_theoretical_seq_5 <- crossing(
+    phase_1 = v_lengths, 
+    phase_2 = v_lengths, 
+    phase_3 = v_lengths, 
+    phase_4 = v_lengths,
+    phase_5 = v_lengths,
+    phase_6 = NA_integer_,
+    phase_7 = NA_integer_
+  )
+  # Length 6
+  df_theoretical_seq_6 <- crossing(
+    phase_1 = v_lengths, 
+    phase_2 = v_lengths, 
+    phase_3 = v_lengths, 
+    phase_4 = v_lengths,
+    phase_5 = v_lengths,
+    phase_6 = v_lengths,
+    phase_7 = NA_integer_
+  )
+  # Length 7
+  df_theoretical_seq_7 <- crossing(
+    phase_1 = v_lengths, 
+    phase_2 = v_lengths, 
+    phase_3 = v_lengths, 
+    phase_4 = v_lengths,
+    phase_5 = v_lengths,
+    phase_6 = v_lengths,
+    phase_7 = v_lengths
+  ) 
+}
+
+# Merge all data frames into one
+df_theoretical_seq <- df_theoretical_seq_1 |> 
+  bind_rows(
+    df_theoretical_seq_2, 
+    df_theoretical_seq_3,
+    df_theoretical_seq_4, 
+    df_theoretical_seq_5, 
+    df_theoretical_seq_6, 
+    df_theoretical_seq_7 
+  )
+```
+
+```{r}
+#| label: possible-sequences
+#| message: false
+#| cache: true
+
+# Transform the theoretical sequences to sequence data
+df_theoretical_seq <- seqdef(
+  data = df_theoretical_seq,
+  alphabet = c("1", "2", "3", "4", "5", "6", "7"),
+  states = c("reconnaisance", "weaponization", "delivery", "exploitation", "installation", "command and control", "actions on objectives")
+)
+
+# Analyze data
+df_theoretical_indicators <- as_tibble(seqindic(
+  seqdata = df_theoretical_seq,
+  indic = c("visitp", "recu", "degrad", "lgth"),
+  with.missing = FALSE,
+  prec.args = list(pow = FALSE)
+)) |> 
+  mutate(
+    # Rename sequence length
+    length = Lgth,
+    # Normalize the proportion of visited states
+    visitp_nor = normalize_minmax(Visitp),
+    # Invert the recurrence index
+    recu_inv = 1 / Recu,
+    recu_inv_nor = normalize_minmax(recu_inv),
+    # Normalize the degradation index
+    # `seqidegrad(penalized = "BOTH")
+    degrad_nor = normalize_minmax(Degrad),
+    efficiency = (visitp_nor + recu_inv_nor + degrad_nor) / 3,
+    efficiency_nor = normalize_minmax(efficiency)
+  )   
+```
+
+```{r}
+#| label: theoretical-indicators
+
+# Set a seed for reproducibility
+set.seed(seed = 100)
+
+# Create a random sample with replacement of theoretical observations
+df_theoretical_indicators_sample <- df_theoretical_indicators |> 
+  select(
+    visitp_nor,
+    recu_inv_nor,
+    degrad_nor,
+    efficiency_nor,
+    length
+  ) |>
+  group_by(length) |> 
+  slice_sample(n = 1050 / 7, replace = TRUE) |> 
+  ungroup()
+```
+
+```{r}
+#| label: fig-theoretical-rel
+#| message: false
+#| warning: false
+#| fig-cap: "Theoretical relationship between the three efficiency indicators, sequence length, and efficiency"
+#| fig-heigth: 4
+#| fig-width: 8
+#| fig-dpi: 500
+
+# Create a plot for each pair of variables to understand how the indicators and sequence length behave
+fig_theoretical_rel <- df_theoretical_indicators_sample |>
+  GGally::ggpairs(
+    mapping = aes(alpha = .1),
+    columnLabels = c("Normalized proportion of visited states", "Normalized inverted recurrence", "Normalized degradation", "Normalized efficiency", "Sequence length"),
+    labeller = label_wrap_gen(width = 20)
+  ) +
+  scale_x_continuous(labels = function(x) as.character(x)) +
+  scale_y_continuous(labels = function(x) as.character(x)) +
+  theme(strip.text.y.right = element_text(angle = 0))
+print(fig_theoretical_rel)
+
+# Save the plot
+ggsave(
+  filename = "fig_theoretical_rel.png",
+  plot = fig_theoretical_rel,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 8,
+  height = 4,
+  units = "in",
+  dpi = 500
+)
+```
+
+```{r}
+#| label: theoretical-cor-cond
+
+# The theoretical correlation
+cor_theor_vis_rec <- cor.test(
+  df_theoretical_indicators_sample |> pull(visitp_nor),
+  df_theoretical_indicators_sample |> pull(recu_inv_nor)
+)
+
+# Removing sequences shorter than three phases
+cor_theor_leng3_vis_rec <- cor.test(
+  df_theoretical_indicators_sample |> filter(length > 2) |> pull(visitp_nor),
+  df_theoretical_indicators_sample |> filter(length > 2) |> pull(recu_inv_nor)
+)
+
+# Removing sequences shorter than four phases
+cor_theor_leng4_vis_rec <- cor.test(
+  df_theoretical_indicators_sample |> filter(length > 3) |> pull(visitp_nor),
+  df_theoretical_indicators_sample |> filter(length > 3) |> pull(recu_inv_nor)
+)
+
+# Removing sequences with no recurrence
+cor_theor_recuyes_vis_rec <- cor.test(
+  df_theoretical_indicators_sample |> filter(recu_inv_nor != 1) |> pull(visitp_nor),
+  df_theoretical_indicators_sample |> filter(recu_inv_nor != 1) |> pull(recu_inv_nor)
+)
+```
+
+```{r}
+#| label: tbl-scenario-cluster
+#| tbl-cap: Distribution and mean efficiency of the six possible theoretical scenarios
+
+df_theoretical_clusters <- df_theoretical_indicators |> 
+  rownames_to_column(var = "id") |> 
+  mutate(scenario = case_when(
+    visitp_nor >= .5 & recu_inv_nor >= .5 & degrad_nor >= .5 ~ "efficient",
+    visitp_nor >= .5 & recu_inv_nor >= .5 & degrad_nor < .5 ~ "reversed",
+    visitp_nor >= .5 & recu_inv_nor < .5 & degrad_nor >= .5 ~ "persistent",
+    visitp_nor < .5 & recu_inv_nor >= .5 & degrad_nor >= .5 ~ "careful",
+    visitp_nor >= .5 & recu_inv_nor < .5 & degrad_nor < .5 ~ "chaotic",
+    visitp_nor < .5 & recu_inv_nor >= .5 & degrad_nor < .5 ~ "lucky",
+    visitp_nor < .5 & recu_inv_nor < .5 & degrad_nor >= .5 ~ "stuck",
+    visitp_nor < .5 & recu_inv_nor < .5 & degrad_nor < .5 ~ "inefficient"
+  )) |> 
+  filter(!(is.na(scenario))) 
+
+df_theoretical_clusters |> 
+  group_by(scenario) |> 
+  summarize(
+    n = n(),
+    prop = (n / nrow(df_theoretical_indicators)) * 100,
+    min_eff = min(efficiency_nor),
+    mean_eff = mean(efficiency_nor),
+    sd_eff = sd(efficiency_nor),
+    max_eff = max(efficiency_nor)
+  ) |> 
+  arrange(desc(mean_eff)) |> 
+  mutate(
+    condition = case_when(
+      scenario == "efficient" ~ "Visitp >= 0.5; Recu >= 0.5; Degrad >= 0.5",
+      scenario == "reversed" ~ "Visitp >= 0.5; Recu >= 0.5; Degrad < 0.5",
+      scenario == "persistent" ~ "Visitp >= 0.5; Recu < 0.5; Degrad >= 0.5",
+      scenario == "careful" ~ "Visitp < 0.5; Recu >= 0.5; Degrad >= 0.5",
+      scenario == "chaotic" ~ "Visitp >= 0.5; Recu < 0.5; Degrad < 0.5",
+      scenario == "lucky" ~ "Visitp < 0.5; Recu >= 0.5; Degrad < 0.5",
+      scenario == "stuck" ~ "Visitp < 0.5; Recu < 0.5; Degrad >= 0.5",
+      scenario == "inefficient" ~ "Visitp < 0.5; Recu < 0.5; Degrad < 0.5"
+    ),
+    .before = n
+  ) |> 
+  kable(
+    digits = 3,
+    col.names = c("Scenario", "Condition", "n", "%", "Min.", "Mean", "Std. dev.", "Max."),
+    booktabs = TRUE,
+    linesep = ""
+  ) |> 
+  add_header_above(c(" " = 2, "Distribution" = 2, "Normalized efficiency" = 4))
+```
+
+# Appendix B {#sec-app-b}
+
+```{r}
+#| label: fig-diagnostics
+#| fig-cap: "Diagnostics of linearity, normality, and influential values for the OLS model"
+#| fig-height: 2.5
+#| fig-width: 8
+#| fig-dpi: 500
+
+diag <- lm(
+  data = df_analysis, 
+  formula = efficiency_nor ~ 
+    itskills +
+    hacking_exp_dic +
+    age +
+    education_dic
+)
+
+# Save the plot
+png(
+  filename = here("Output", "figures", "fig_diagnostics.png"),
+  width = 8,
+  height = 2.5,
+  units = "in",
+  res = 500
+)
+par(mfrow = c(1, 3))
+plot(diag, which = c(1, 2, 5))
+dev.off()
+```
+
+# References {.unnumbered}
+
+::: {#refs}
+:::
+
+```{r}
+#| label: session
+
+sessionInfo()
+```
+
+R version 4.3.0 (2023-04-21 ucrt)
+Platform: x86_64-w64-mingw32/x64 (64-bit)
+Running under: Windows Server 2016 x64 (build 14393)
+
+Matrix products: default
+
+
+locale:
+[1] LC_COLLATE=Dutch_Netherlands.1252  LC_CTYPE=Dutch_Netherlands.1252   
+[3] LC_MONETARY=Dutch_Netherlands.1252 LC_NUMERIC=C                      
+[5] LC_TIME=Dutch_Netherlands.1252    
+
+time zone: Europe/Amsterdam
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] TraMineR_2.2-7     forcats_1.0.0      stringr_1.5.0     
+ [4] readr_2.1.4        tidyverse_2.0.0    yardstick_1.2.0   
+ [7] workflowsets_1.0.1 workflows_1.1.3    tune_1.1.1        
+[10] tidyr_1.3.0        tibble_3.2.1       rsample_1.1.1     
+[13] recipes_1.0.6      purrr_1.0.1        parsnip_1.1.0     
+[16] modeldata_1.1.0    infer_1.0.4        ggplot2_3.4.2     
+[19] dplyr_1.1.2        dials_1.2.0        scales_1.2.1      
+[22] broom_1.0.5        tidymodels_1.1.0   patchwork_1.1.2   
+[25] lubridate_1.9.2    knitr_1.43         kableExtra_1.3.4  
+[28] icr_0.6.3          here_1.0.1         ggseqplot_0.8.2   
+
+loaded via a namespace (and not attached):
+ [1] Rdpack_2.4          permute_0.9-7       rlang_1.1.1        
+ [4] magrittr_2.0.3      furrr_0.3.1         compiler_4.3.0     
+ [7] mgcv_1.8-42         systemfonts_1.0.4   vctrs_0.6.3        
+[10] lhs_1.1.6           rvest_1.0.3         crayon_1.5.2       
+[13] pkgconfig_2.0.3     fastmap_1.1.1       ellipsis_0.3.2     
+[16] backports_1.4.1     labeling_0.4.2      utf8_1.2.3         
+[19] rmarkdown_2.22      tzdb_0.4.0          prodlim_2023.03.31 
+[22] ragg_1.2.5          bit_4.0.5           xfun_0.39          
+[25] cachem_1.0.8        jsonlite_1.8.5      progress_1.2.2     
+[28] highr_0.10          reshape_0.8.9       prettyunits_1.1.1  
+[31] parallel_4.3.0      cluster_2.1.4       R6_2.5.1           
+[34] bslib_0.5.0         stringi_1.7.12      RColorBrewer_1.1-3 
+[37] GGally_2.1.2        parallelly_1.36.0   boot_1.3-28.1      
+[40] rpart_4.1.19        jquerylib_0.1.4     Rcpp_1.0.10        
+[43] iterators_1.0.14    future.apply_1.11.0 Matrix_1.5-4       
+[46] splines_4.3.0       nnet_7.3-18         timechange_0.2.0   
+[49] tidyselect_1.2.0    rstudioapi_0.14     vegan_2.6-4        
+[52] timeDate_4022.108   codetools_0.2-19    listenv_0.9.0      
+[55] lattice_0.21-8      plyr_1.8.8          withr_2.5.0        
+[58] evaluate_0.21       future_1.33.0       survival_3.5-5     
+[61] xml2_1.3.4          pillar_1.9.0        foreach_1.5.2      
+[64] generics_0.1.3      vroom_1.6.3         rprojroot_2.0.3    
+[67] hms_1.1.3           munsell_0.5.0       globals_0.16.2     
+[70] class_7.3-21        glue_1.6.2          tools_4.3.0        
+[73] data.table_1.14.8   gower_1.0.1         webshot_0.5.5      
+[76] grid_4.3.0          rbibutils_2.2.13    ipred_0.9-14       
+[79] colorspace_2.1-0    nlme_3.1-162        cli_3.6.1          
+[82] DiceDesign_1.9      textshaping_0.3.6   fansi_1.0.4        
+[85] viridisLite_0.4.2   svglite_2.1.1       lava_1.7.2.1       
+[88] gtable_0.3.3        GPfit_1.0-8         sass_0.4.6         
+[91] digest_0.6.32       farver_2.1.1        htmltools_0.5.5    
+[94] lifecycle_1.0.3     hardhat_1.3.0       httr_1.4.6         
+[97] bit64_4.0.5         MASS_7.3-58.4 
