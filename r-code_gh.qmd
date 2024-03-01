@@ -1,6 +1,5 @@
 ---
 title: "Criminal Expertise and Hacking Efficiency"
-subtitle: "R code"
 date: "`r Sys.Date()`"
 author: 
   - name: Asier Moneva
@@ -23,8 +22,26 @@ author:
       - name: The Hague University of Applied Sciences
         department: Center of Expertise Cyber Security 
     email: d.j.meinsma@hhs.nl
+format: 
+  pdf: 
+    number-sections: true
+  docx: 
+    reference-doc: docx-template.docx
+    number-sections: true
+  html: default
+prefer-html: true
 editor: source
+bibliography: references.bib
+csl: apa-6th-edition.csl
 ---
+
+# Abstract {.unnumbered}
+
+Criminal expertise plays a crucial role in the choices offenders make when committing a crime, including their modus operandi. However, our knowledge about criminal decision making online remains limited. Drawing on insights from cyber security, we conceptualize the cybercrime commission process as the sequence of phases of the cyber kill chain that offenders go through. We assume that offenders who follow the sequence consecutively use the most efficient hacking method. Building upon the expertise paradigm, we hypothesize that participants with greater hacking experience and IT skills undertake more efficient hacks. To test this hypothesis, we analyzed data from 69 computer security and software engineering students who were invited to hack a vulnerable website in a computer lab equipped with monitoring software, which allowed to collect objective behavioral measures. Additionally, we collected individual measures regarding hacking expertise through an online questionnaire. After quantitatively measuring efficiency using sequence analysis, a regression model showed that the expertise paradigm may also apply to hackers. We discuss the implications of our novel research for the study of offender decision-making processes more broadly.
+
+# Keywords {.unnumbered}
+
+criminal decision-making, cyber kill chain, expertise paradigm, hacking, sequence analysis
 
 ```{r}
 #| label: pkgs
@@ -41,6 +58,7 @@ editor: source
   library(knitr)
   library(lubridate)
   library(patchwork)
+  library(pwr)
   library(tidymodels)
   library(tidyverse)
   library(TraMineR)
@@ -107,53 +125,113 @@ df_comm <- read_csv(
 
 # Introduction
 
+The Expertise Paradigm in criminology describes how the development of domain-specific skills and knowledge is related to offending [@nee2015; @nee2019].[^1] In psychology, expertise has been defined as the combination of "skills and knowledge an individual develops through learning and concerted practice in a particular domain" [@nee2019, p. 483]. In this way---intentionally or not---individuals develop expertise along a continuum of competence that discriminates novices from masters [@chi1989; @chopin2022; @nee2015]. Nee [-@nee2019] argues that the Expertise Paradigm complements the Rational Choice Perspective [@thereas1986] and extends explanations for offending with automatic or unconscious decision making. Since early research on burglars [@wright1995], studies have consistently shown that more criminal expertise results in greater situational awareness, which contributes to automate the crime-commission process [@nee2015]. Therefore, the more expert burglars act more efficiently [@nee2006; @meenaghan2023]. Efficiency is essential to understanding the crime commission process, as it reveals how offenders optimize resources while minimizing risk and maximizing profits. Ultimately, this insight can serve to develop prevention measures aimed at rendering crime ineffective enough so as to discourage offenders from committing it.
+
+[^1]: Expertise with criminal activity as an outcome has also been called *dysfunctional* expertise, as opposed to *functional* expertise [@nee2015].
+
+However, ongoing discussions on whether cyber offenders differ from traditional offenders [@weulenkranenbarg2019; @weulenkranenbarg2021; @weulenkranenbarg2018], along with recent developments in criminal business models like cybercrime-as-a-service [@hyslip2020], raise questions about whether the observed relationship between criminal efficiency and expertise in offenders such as burglars [e.g., @nee2019; @nee2006; @meenaghan2023], carjackers [@topalli2015], and online sex offenders [@chopin2022], holds true for hackers; that is, whether higher hacking expertise is also related to higher hacking efficiency. A better understanding of the relationship between expertise and efficiency in hacking could shed light on the modus operandi of cybercriminals and identify attack patterns of novices and experts. In this way it would be possible to identify different attack vectors leading to tailored responses, as well as addressing emerging threats before they escalate.
+
+Hacking can be broadly defined as the unauthorized trespassing of a computer system [for a discussion, see @holt2020]. A system can be, for example, a personal computer, a workstation, or a web server. There are multiple ways to hack into a system ranging from social engineering to the use of malware, and not all of them require the same skills [for reviews see @furnell2014; @maimon2019].[^2] Website defacements are hacks that modify the content of a web page without permission of its administrator [e.g., @holt2011; @moneva2022], and are often carried out by script kiddies who want to gain status within the hacker community [@holt2007], or by hacktivists with political motives [@romagna2020]. A common target of defacements are websites created with WordPress, the most popular open-source content management system for website creation. Not all hackers are equally efficient though. For example, a study found that financially motivated hackers can be either fast and unsophisticated, or slow and sophisticated [@vanwieren2016]. Another survey-based study reported that hackers with rational information processing tendencies used more effective hacking methods than those with experiential tendencies [@bachmann2010]. These results suggest that hackers acting rationally would try to minimize their effort while navigating cyberspace toward their target.
+
+[^2]: Note that cybercrime-as-a-service has democratized access to cybercrime, offering tools, processes, and services that require minimal knowledge and skills at a low cost [@hyslip2020]. Notably, many of these materials are readily available on the clear web at no cost, introducing a new dimension to the crime commission process and making it particularly accessible to non-expert and potential hackers.
+
+This pre-registered study builds on existing research and extends it to the online environment. In particular, we examine the efficiency of IT students in hacking a website within a controlled online environment that, for one hour, monitors their online behavior.
+
 # Criminal expertise and the hacking process
+
+Decades ago, criminologists suggested that expert offenders are able to process environmental cues effortlessly and make better target selection choices [@brantingham1978]. Unlike traditional offenders, hackers carry out crimes online. To navigate cyberspace, hackers must pass instructions to a computer by means of clicks and keystrokes. So, while physical distance is an offline impediment that hackers do not face online [e.g., @yar2005], they may encounter other obstacles, such as the natural or computer languages they must know to access certain information. Here, expertise is key, as it is more likely that hackers with more knowledge and IT skills will overcome these obstacles with less effort, adopting a more efficient modus operandi. In contrast, a lack of expertise can also lead hackers to retrace their steps or take additional steps, which requires more time and effort and is therefore less efficient. This means that contingent upon the level of expertise of hackers and their decision making, the crime commission process unfolds in different ways.
+
+There are indeed multiple ways to hack into a system, each demanding a different expertise. Less technical hacks usually involve some form of social engineering, like phishing, or an oversight on the part of the system administrator. Against the myth, it is not always necessary to be an IT expert to hack a target. Cybercrime-as-a-service makes affordable toolkits, such as remote access tools or phishing kits, available to potential hackers [@hyslip2020]. The tutorials that accompany these products make hacking easy for many. Within the more technical hacking methods, there are also degrees of sophistication [@maimon2019]. One of the least sophisticated methods is the brute-force attack, which consists of implementing an automatic method to test a massive list of passwords against a login system. A more efficient version of this hack would be a dictionary attack, which would only use the most popular passwords. But even this small refinement requires some expertise from the offender, who has to know where to find a directory of frequently used passwords. The next step on the sophistication ladder includes SQL injections, which insert malicious code to extract data from a vulnerable data-driven application. When the target of the hack is a website, a common technique is the directory or path traversal attack. This type of attack relies on the existence of standard directory structures in systems to access sensitive files, such as usernames or passwords. Systems based on directory templates, such as WordPress, are particularly vulnerable to this type of attack. Among those that require a higher degree of sophistication are hacks that employ malicious software to collect sensitive information through the keystrokes of their victims---spyware---or to take control of a system---trojan. This wide range of techniques, that includes just a few [for a review, see @furnell2014], shows that hacking is a cybercrime that admits different expertise, which makes it attractive to a wide group of cyber offenders.
 
 ```{r}
 #| label: kill-chain
 
 # Define the variables
 v_phase_kc <- 1:7
-v_name_kc <- c("Reconnaissance", "Weaponization", "Delivery", "Exploitation", "Installation", "Command and control", "Actions on objectives")
-v_description_kc <- c("Doing research to identify and select targets.", "Attaching malware to an exploit on a deliverable.", "Transmitting the deliverable to the target.", "Triggering the malware of the deliverable.", "Fixing the malware to maintain presence inside the target.", "Establishing a channel between the controller server and the target.", "Interacting with the target further.")
+v_name_kc <- c(
+  "Reconnaissance", 
+  "Weaponization", 
+  "Delivery", 
+  "Exploitation", 
+  "Installation", 
+  "Command and control", 
+  "Actions on objectives"
+)
+v_description_kc <- c(
+  "Doing research to identify and select targets.", 
+  "Attaching malware to an exploit on a deliverable.", 
+  "Transmitting the deliverable to the target.", 
+  "Triggering the malware of the deliverable.", 
+  "Fixing the malware to maintain presence inside the target.", 
+  "Establishing a channel between the controller server and the target.", 
+  "Interacting with the target further."
+)
+v_example_kc <- c(
+  "Gathering information about a target website like software version, plugins installed, and potential vulnerabilities.",
+  "Creating a malicious script to exploit the identified vulnerabilities via code injection or file manipulation and embedding it in a file.",
+  "Sending the manipulated file to the website through a compromised plugin or injecting it directly into its directory.",
+  "Executing the script to access sensitive files, compromise login credentials, or initiate remote code execution.",
+  "Establishing a persistent foothold on the compromised website by modifying critical files.",
+  "Setting up a channel to remotely control the website, often through a backdoor or hidden communication protocol.",
+  "Defacing the website by, for example, altering content or displaying political messages."
+)
 ```
 
 ```{r}
 #| label: tbl-kill-chain
-#| tbl-cap: The seven phases of the cyber kill chain
+#| tbl-cap: The seven phases of the cyber kill chain applied to website defacement
 
 # Arrange the variables in a table
 tibble(
   v_phase_kc,
   v_name_kc,
-  v_description_kc
+  v_description_kc,
+  v_example_kc
 ) |> 
   kable(
-    col.names = c("Phase", "Label", "Description"),
+    col.names = c("Phase", "Label", "Description", "Website defacement example"),
     booktabs = TRUE,
     linesep = ""
   ) |> 
   footnote(
     general = "Hutchins et al. (2011)",
-    general_title = "Source: ",
+    general_title = "Source for label and description: ",
     footnote_as_chunk = TRUE,
     threeparttable = TRUE
   )
 ```
 
+Despite the variability of the crime commission process, criminologists and computer scientists have attempted to organize hacking in a standardized sequential process using analytical frameworks such as crime scripts [@cornish1993], and the cyber kill chain [@hutchins2011]. For Hutchins and colleagues [-@hutchins2011], the cyber kill chain can be captured in a sequence of seven phases (@tbl-kill-chain). From the first phase of *reconnaisance* to the last phase of *command and control*, hackers must act on a series of decisions that transport them through the kill chain in one way or another. Both crime scripts and kill chains have the same purpose: to comprehend the crime commission process to identify disruption points. Beyond formalizing the original phases, there is no standardized method for representing crime scripts or kill chains. The progressive model of phases, spanning from before, during, to after the commission of the crime, along with the apparent clarity it provides, encourages presenting scripts in a linear manner. With few exceptions that explicitly acknowledge cyclic processes in the script [@matthijsse2023], most scripts are presented linearly [@loggen2022; @holt2022; @hutchings2015]. The resulting linear schematic representations of crime, whether scripts or kill chains, may therefore be overly simplistic, and important nuances for understanding crime in cases that are not straightforward (e.g., incomplete attempts, recurrence in certain phases, return to previous phases) would get lost.
+
+To delineate a more realistic crime-commission process, we apply sequence analysis---a method to study and interpret patterns in a series of events [@ritschard2021]. We collect objective behavioral data to analyze quantitatively and in detail how IT students navigate the phases of the kill chain. The resulting sequences of actions reveal new patterns of behavior in the hacking process, while sequence indicators also serve to propose a novel quantitative measure of criminal efficiency.
+
 # The present study
+
+Based on the Rational Choice Perspective [@thereas1986], we assume that hackers are rational beings who will try to maximize rewards with minimum effort. In their attempt to trespass a computer system, hackers would then try to follow the most efficient methods: those that lead to a successful hack with the least effort. To measure the efficiency of a hack, it is first necessary to determine which way of hacking requires the least effort. In this study we assume that following the sequence of steps described in the cyber kill chain [@hutchins2011] is the most efficient method of performing a hack, as long as the sequence is followed in a linear fashion, without recourse in its steps. *Hacking efficiency* can therefore be defined as the extent to which a hacker successfully progresses through the phases of the kill chain while reducing phase repetition and sustaining forward momentum in the sequence. However, not all hackers are equally efficient. Although some follow the cyber kill chain sequentially, others act chaotically, jumping from phase to phase until they eventually might stumble upon a solution. To better understand the decision making process of offenders in cyberspace and the factors associated with it, we developed and pre-registered a novel research design to address the following research question:
+
+> What is the relationship between individual hacking expertise and hacking efficiency?
 
 ## Hypotheses
 
+The expertise paradigm [@nee2019] suggests that those individuals who have experience in performing a specific task will perform it more efficiently as they automate part of the process [e.g., @nee2006]. A study showing that higher IT skills may be positively related with the commission of the more technical offenses, such as hacking [@weulenkranenbarg2019], provides indirect evidence for this relationship. Individuals with more hacking experience and skills might better understand the structure of the website, its hosting, the software it uses, and what vulnerabilities it has as a result. It is possible that the most expert hackers already possess---or know where to find---the information needed to execute the hack, which would help them move up the kill chain. Experts would then navigate hacking-related websites and acquire the right information from them with more ease than novices due to greater awareness and expertise. This reasoning leads us to formulate the following two hypotheses:
+
+> H~1~: IT students with hacking experience will conduct more efficient attempts to hack a target website.
+
+> H~2~: IT students with more IT skills will conduct more efficient attempts to hack a target website.
+
 ## Pre-registration
+
+In line with open science practices, and to prevent HARKing (i.e., hypothesizing after the results are known) and p-hacking (i.e., manipulating analysis to achieve statistical significance), we pre-registered the present study. The study was pre-registered in the Open Science Framework (OSF) in April 2022, after the data were collected and the distribution of the variables was reported in a codebook, but before conducting the analyses presented in this manuscript. For details, see [the pre-registration](https://osf.io/ufdp8/?view_only=168ee7978f1b4b1399b87cecd8e7e75c).
 
 ## Ethical considerations
 
+This research was reviewed by the Ethics Committee \[*redacted for peer-review*\] in April 2021. After making some minor remarks regarding the content of the informed consent and the challenges of conducting research during COVID-19 times, the committee declared no ethical concerns.
+
 # Methods
 
-## The computer lab
+Using the facilities of \[*redacted for peer-review*\] University, we prepared a computer lab to collect a range of objective and subjective measures from participants through their participation in a two-part study: a website defacement challenge,[^3] and an online questionnaire about online behavior and IT knowledge.
 
-## Study design
+[^3]: Such challenges are commonly known as *capture-the-flag* exercises in cyber security training [see @cowan2003].
 
 ## Participants
 
@@ -174,6 +252,75 @@ gender_stats <- df_ques |>
   mutate(p = round((n / nrow(df_ques)) * 100, 1))
 ```
 
+For this study we intended to recruit a sample that resembled as closely as possible a sample of young hackers. A recent review of 23 studies on the characteristics of cybercriminals concludes that most are young, highly educated males [@edwards2022]. That is why we recruited participants from technical programs at \[*redacted for peer-review*\]---students of IT security and computer engineering---through an advertisement distributed online by their teachers. Participants were incentivized with €10 for their participation in the form of an online store gift-card, raised to €20 if they hacked and defaced the target website. To participate in the study, participants had to sign an informed consent. We recruited 72 participants and, after excluding two participants (*ID* = QAKJ7y, V7DwJe) for failing to record their data correctly and one participant (*ID* = dDz2Dd) for speeding during the questionnaire (completed in 2.5 minutes), collected valid data from `r nrow(df_ques)` in seven sessions split over two days in September 2021. Participants had a mean age of `r age_stats |> pull(1)` years (*SD* = `r age_stats |> pull(2)`) and were mostly male (`r gender_stats |> pull(3) |> first()`%).
+
+## The computer lab
+
+The lab is maintained by university staff and consists of two adjacent computer rooms with 26 and 28 computers respectively. About half of the computers were made available in an attempt to distribute participants evenly across the rooms. All computers had the same specification and ran on Windows 10. The computers were connected to the Internet and, using Oracle Virtual Machine VirtualBox version 6.1.18, incorporated two virtual machines (VMs) each on a host-only network. A system snapshot was preserved for both VMs, allowing the virtual environment to be manually restored to the initial state of the challenge at the end of each session. The first VM was an Ubuntu 20.04.2 Live Server (amd64) and had installed WordPress version 5.7.2, a popular open-source content management system. This VM was used to host the target website. The second VM was a default Kali Linux machine, a Debian-derived Linux distribution designed for digital forensics and penetration testing. To monitor participants and collect objective behavioral measures we installed the monitoring software [Actual Keylogger](https://www.actualkeylogger.com/) on each computer.
+
+## Study design
+
+In the first part of the exercise, participants were assigned to their own computer and took part in a 60-minute monitored capture-the-flag exercise in which they were asked to deface the target WordPress website that was hosted in the first VM. One way to do this was, for example, to obtain the administrator's password by exploiting a vulnerability. As the website was created by one of the researchers and hosted in a controlled environment, this was a harmless task. The website was made vulnerable by:
+
+-   allowing all files in the WordPress folder to be read by any user;
+-   setting a very short administrator's password, which could be obtained by performing a dictionary attack---an efficient type of brute force attack---on the login page of the website;
+-   having an unencrypted backup of the administrator's password stored in the machines folder structure, which could be reached using the remote code execution vulnerability in the (installed) WordPress Plugin wpDiscuz 7.0.4.
+
+```{r}
+#| label: kill-chain-vuln
+
+v_example_kc_read <- c(
+  "Identifying that the website is built in WordPress and its file structure.",
+  "Writing a malicious script that leverages the fact that no permissions are required to read the file.",
+  "Uploading the script to the website's WordPress directory.",
+  "Executing the script to read sensitive files, like the one containing the password.",
+  "Modifying the theme file to ensure persistence, and embedding the script.",
+  "Establishing a hidden communication channel between the compromised website and the attacker's server via a backdoor.",
+  "Defacing the website, and using the website to launch further attacks like spreading malware or stealing user data."
+)
+v_example_kc_password <- c(
+  "Finding the login page of the WordPress website and any potential users.",
+  "Using a dictionary attack tool to guess the administrator password.",
+  "Launching the dictionary attack on the login page.",
+  "Gaining unauthorized access to the WordPress admin panel.",
+  "Modifying the theme file to ensure persistence, and embedding the script.",
+  "Establishing a hidden communication channel between the compromised website and the attacker's server via a backdoor.",
+  "Defacing the website, and using the website to launch further attacks like spreading malware or stealing user data."  
+)
+v_example_kc_wpdiscuz <- c(
+  "Identifying the version of wpDiscuz plugin in the WordPress website and its vulnerabilities.",
+  "Crafting a payload to exploit the remote code execution vulnerability.",
+  "Injecting the payload into the website.",
+  "Executing the payload to retrieve the unencrypted backup with the administrator's password.",
+  "Modifying the theme file to ensure persistence, and embedding the script.",
+  "Establishing a hidden communication channel between the compromised website and the attacker's server via a backdoor.",
+  "Defacing the website, and using the website to launch further attacks like spreading malware or stealing user data."    
+)
+```
+
+```{r}
+#| label: tbl-kill-chain-vuln
+#| tbl-cap: Three examples of the cyber kill chain exploiting the vulnerabilities in the target WordPress website
+
+# Arrange the variables in a table
+tibble(
+  v_phase_kc,
+  v_name_kc,
+  v_example_kc_read,
+  v_example_kc_password,
+  v_example_kc_wpdiscuz
+) |> 
+  kable(
+    col.names = c("Phase", "Label", "Sequence 1", "Sequence 2", "Sequence 2"),
+    booktabs = TRUE,
+    linesep = ""
+  )
+```
+
+Following the kill chain, we present in @tbl-kill-chain-vuln three examples of intrusions that would exploit each of the vulnerabilities. Note that participants were not asked to erase their digital traces as part of the exercise, so such concealing behaviors we would expect from expert hackers are outside the scope of the study.
+
+In the second part, an online questionnaire designed with [LimeSurvey](https://www.limesurvey.org/) was administered to collect additional individual measures from participants. We assigned each participant a unique identifier, which allowed us to link the data they generated during both exercises.
+
 ## Data
 
 ```{r}
@@ -186,7 +333,7 @@ df_logs_ <- df_logs |>
       user == "8ua9uF" ~ as_datetime("2021-09-24 11:57:00"),
       user == "AmEJXM" ~ as_datetime("2021-09-24 11:56:00"),
       user == "hxWBZk" ~ as_datetime("2021-09-24 12:20:00"),
-day == 24 & room == 1 & time == "morning" ~ as_datetime("2021-09-24 08:18:00"),
+      day == 24 & room == 1 & time == "morning" ~ as_datetime("2021-09-24 08:18:00"),
       day == 24 & room == 1 & time == "afternoon" ~ as_datetime("2021-09-24 11:51:00"),
       day == 24 & room == 2 & time == "morning" ~ as_datetime("2021-09-24 08:11:00"),
       day == 24 & room == 2 & time == "afternoon" ~ as_datetime("2021-09-24 11:43:00"),
@@ -248,16 +395,26 @@ ggsave(
 )
 ```
 
+The monitoring software allowed us to accurately capture the activity of the participants during the capture-the-flag exercise (@fig-activity), including the keystrokes introduced and their source. Keystrokes included keyboard keys and mouse buttons. Keyboard keys can produce character strings like "words", and special keys like 'control' ($<$Ctrl$>$), 'enter' ($<$Enter$>$), or 'backspace' ($<$BkSp$>$). The source of the keystrokes indicates where they were entered, usually an application, a URL or an IP. It is therefore possible to precisely reconstruct the text generated by the participants with the keyboards in a given context, such as a search query in a web browser or an instruction in a network mapping application, even if the participants made a typing mistake that they later corrected. A limitation of the monitoring software is that it does not collect keystrokes introduced in the Kali Linux VM, so we had to manually collect all commands introduced in the Kali Linux command prompt using the `history` command. The commands were then saved as a .txt file. After processing and cleaning the data, we identified `r nrow(df_comm)` unique keystrokes, `r df_comm |> filter(str_starts(string = id, pattern = "c")) |> count() |> pull()` (`r round(df_comm |> filter(str_starts(string = id, pattern = "c")) |> count() |> pull() / nrow(df_comm) * 100, 1)`%) of which were commands from the Kali Linux command prompt.
+
+With the online questionnaire we collected participants' socio-demographic information, online routine activities, self-reported cyber- offending and victimization experiences, objective IT skills, and asked whether participants sought external help to complete the task. We also collected data on the time participants took to complete the questionnaire. The data analyzed contain observations from `r nrow(df_ques)` participants across `r ncol(df_ques)` variables.
+
 ## Measures
 
+In theory, the most direct measure of hacking efficiency would be the time it takes for a participant to deface the website. However, within the time constraints of the capture-the-flag exercise, only one of the participants succeeded (*ID* = uzSQ9H). So, instead, we looked at the sequence of actions they took to hack the website using the cyber kill chain as a reference. The main outcome variable is therefore the hacking efficiency shown by participants *while* performing the capture-the-flag challenge as captured by the monitoring software. The two main predictors will be the objective IT-skills of participants and their hacking experience. These two measures were collected using the online questionnaire based on that of Weulen Kranenbarg and colleagues [-@weulenkranenbarg2021].
+
 ### A hacking efficiency index
+
+Since only one participant hacked the website, we cannot compare successful participants and then determine who was fastest to determine their efficiency. We can, however, examine the sequence of steps they took and how far they got according to the cyber kill chain, defined as "a systematic process to target and engage an adversary \[in this case a website\] to create desired effects" [@hutchins2011, p. 4]. To identify how far the participants got in the kill chain, we asked two IT security experts to annotate each keystroke according to one of the phases of the kill chain or indicate 'unclear' if they were not sure. The experts, who were technical security instructors at the same institution where the participants were studying, taught courses on topics like cyber operations---focusing on the fundamentals of pentesting and SOC analysis---and were therefore well aware of the capabilities of the participants. Because of this knowledge, the experts were in an advantageous position to understand the participants' hacking process. To facilitate the annotation task, we provided the experts with a graphical user interface created with Visual Basic for Applications in a Microsoft Excel macro-enabled spreadsheet along with detailed instructions on how to carry out the task. Such instructions included the definition of each of the phases of the kill chain, a description of the keystroke data, and a user manual for the interface.
 
 ```{r}
 #| label: fun-normalize
 
 # Create a function to min-max normalize variables
 normalize_minmax <- function(x) {
+  
   (x - min(x)) / (max(x) - min(x))
+  
 }
 ```
 
@@ -309,6 +466,8 @@ krip <- krippalpha(
   nnp = 1000
 )
 ```
+
+We then assessed the degree of agreement between the two experts with the inter-rater reliability score produced by Krippendorff's alpha [@krippendorff1970]. The alpha showed little to no agreement between the raters ($\alpha$ = `r round(krip$alpha, 3)`). As we anticipated a large amount of uncertainty on the part of the experts, we developed a rule to favor certainty over uncertainty. In the event that one of the two experts was unable to classify the commands or keystrokes according to one of the categories of the kill chain (i.e., indicated "Unclear"), the opinion of the expert who classified them prevailed. Disagreements between the two experts were then resolved by a third expert, who was the head of their research group.
 
 ```{r}
 #| label: sequence-data
@@ -368,8 +527,8 @@ df_seq_data_grouped <- df_seq_grouped |>
 #| label: fig-sequence
 #| message: false
 #| fig-cap: "Participants' hacking sequences according to the phases of the cyber kill chain"
-#| fig-height: 10
-#| fig-width: 8
+#| fig-height: 8
+#| fig-width: 10
 #| fig-dpi: 500
 
 # Visualize sequences
@@ -378,6 +537,8 @@ fig_seq <- ggseqiplot(
   border = TRUE,
   sortv = "from.start",
   linetype = 2
+  # group = df_seq_$user,
+  # facet_ncol = 1
 ) +
   scale_fill_manual(
     values = c("#FDE725FF", "#8FD744FF", "#35B779FF", "#21908CFF", "#31688EFF", "white"),
@@ -416,6 +577,8 @@ v_seq_length <- df_comm_ |>
   summarize(max = max(seq_final)) |> 
   ungroup() |> 
   pull(max)
+# Percentage
+# tbl_seq_length <- prop.table(table(v_seq_length < 4))
 
 # Summary stats for number of sequences per participant
 df_seq_summary <- df_seq_ |> 
@@ -430,6 +593,18 @@ df_seq_summary <- df_seq_ |>
     max = max(seq_num)
   )
 ```
+
+This process revealed `r nrow(df_seq_)` sequences distributed among `r nrow(df_seq_grouped)` participants (@fig-sequence). Note that each time participants opened a new instance of the Kali Linux command prompt to execute commands we had to record their keystrokes as an independent sequence because the command line keystrokes are not time-stamped and therefore cannot be joined to the rest of the keystrokes in a timeline. For this reason, `r df_comm |> filter(str_starts(string = id, pattern = "c")) |> count(user) |> nrow()` (`r round(df_comm |> filter(str_starts(string = id, pattern = "c")) |> count(user) |> nrow() / nrow(df_ques) * 100, 1)`%) participants produced more than one sequence---up to a maximum of `r df_seq_summary |> pull(max)` (*M* = `r df_seq_summary |> pull(mean)`; *SD* = `r df_seq_summary |> pull(sd)`).
+
+Based on the sequences, we claim that the hacking efficiency of the participants should be considered higher in relation to the kill chain when they:
+
+-   reach more phases;
+-   repeat fewer phases, and/or
+-   go forward more often than backwards.
+
+These conditions can be measured using sequence analysis. We used the TraMineR R package [@gabadinho2011] to calculate three indicators per sequence and participant. The first indicator was the *proportion of visited states* [@brzinsky-fay2007], a numeric value normalized to range from 0 to 1 that measures how far participants got in the kill chain. The second was an inverted version of the *recurrence index* [@pelletier2020], a numeric value normalized to range from 0 to 1 that measures how often participants took a step backwards in the kill chain. The third was the *degradation index* [@ritschard2021], a numeric value normalized to range from 0 to 1 that measures phase transitions in the right direction. Since the order of the phases does not matter to calculate the proportion of visited states, but it does matter to calculate the recurrence and degradation indicators, we calculated the first by aggregating all sequences per participant, while we calculated the other two on each individual sequence and then averaged them per participant.
+
+We then explored whether combining these factors into a single efficiency construct would yield meaningful results. To do so, we simulated sequences, conducted bivariate analyses, and theorized several scenarios (@sec-app-a). The analyses revealed that there is a statistically significant and negative relationship between inverted recurrence and sequence length that disappears when accounting for sequence length. This suggests that these efficiency indicators should not be combined into one unless controlling for sequence length. So, we decided to deviate from the pre-registration and add *sequence length* (i.e., the sum of the length of all sequences produced by each participant) to our control variables, and combine all efficiency indicators into a single outcome variable. Therefore, the *hacking efficiency index* is a normalized average value of the three efficiency indicators, ranging between 0 and 1, where higher values represent higher efficiency. TraMineR uses Optimal Matching [@abbott1986] to work with sequences of different lengths.
 
 ```{r}
 #| label: seq-fake
@@ -600,6 +775,7 @@ df_indicators_ <- df_indicators |>
   summarise(
     length_sum = sum(length),
     visitp_nor_m = mean(visitp_nor),
+    # recu_inv_m = mean(recu_inv),
     recu_inv_nor_m = mean(recu_inv_nor),
     degrad_nor_m = mean(degrad_nor),
   ) |>  
@@ -664,6 +840,11 @@ df_efficiency <- df_indicators_ |>
     efficiency = (visitp_nor + recu_inv_nor_m + degrad_nor_m) / 3,
     efficiency_nor = normalize_minmax(efficiency)
   )
+
+# Check how ungrouped indices correlate with grouped indices
+# cor(df_efficiency$visitp_m, df_efficiency$visitp)
+# cor(df_efficiency$recu_inv_m, df_efficiency$recu_inv)
+# cor(df_efficiency$degrad_nor_m, df_efficiency$degrad_nor)
 ```
 
 ```{r}
@@ -782,6 +963,7 @@ fig_recu_inv <- df_efficiency |>
     x = "Score",
     y = NULL
   )
+# print(fig_recu_inv)
 
 # Save the plot
 ggsave(
@@ -832,6 +1014,7 @@ fig_degrad_nor <- df_efficiency |>
     x = "Score",
     y = NULL
   ) 
+# print(fig_degrad_nor)
 
 # Save the plot
 ggsave(
@@ -885,6 +1068,8 @@ fig_efficiency <- df_efficiency |>
     x = "Score",
     y = NULL
   )
+# Present the plot
+# print(fig_efficiency)
 
 # Save the plot
 ggsave(
@@ -967,6 +1152,10 @@ ggsave(
   dpi = 500
 )
 ```
+
+To demonstrate the performance of the index, @fig-fake scores the efficiency of six synthetic sequences of different lengths that represent extreme theoretical scenarios. The *best scenario* represents a sequence of seven phases corresponding to those of the kill chain. This sequence has the maximum proportion of visited states, the minimum recurrence, and the minimum degradation. It obtains, therefore, a normalized efficiency score of 1. In contrast, the worst scenario represents a sequence whose properties result in an efficiency of 0. @fig-fake then shows three sequences representing the least efficient scenarios with respect to each of the three efficiency indicators: a sequence with the minimum proportion of visited states (*lowest normalized proportion of visited states* = `r round(min(df_fake_indicators$visitp_nor), 3)`); a sequence with maximum recurrence (*lowest normalized inverted recurrence* = `r round(min(df_fake_indicators$recu_inv_nor), 3)`), and a sequence with the maximum degradation (*lowest normalized degradation* = `r round(min(df_fake_indicators$degrad_nor), 3)`). Finally, it displays a sequence that combines 7 phases randomly sampled from our data. In these examples, the maximum recurrence scenario also happens to be the least efficient.
+
+@fig-indices shows the distribution of the three efficiency indicators, and the hacking efficiency index using the participants' sequence data.
 
 ### Objective IT-Skills
 
@@ -1088,6 +1277,8 @@ ggsave(
 )
 ```
 
+We use the IT-skills test developed by Weulen Kranenbarg and colleagues [-@weulenkranenbarg2021] to measure the objective IT skills of participants. The test is based on other online tests and was adapted with the assistance of the Team High Tech Crime of the Netherlands Police. It consists of 10 items with 5 response options each, including "I don't know". To prevent participants from searching for answers on the Internet, we added a timer of 45 seconds to each question. Correct answers scored 1 point, while incorrect ones subtracted 0.25. Answering with "I don't know" or not answering, neither added nor subtracted. Scores could therefore range from -2.5 to 10 points. @fig-itskills shows the distribution of the participants' scores.
+
 ### Self-reported hacking experience
 
 ```{r}
@@ -1126,7 +1317,6 @@ df_ques_ <- df_ques_ |>
 
 ```{r}
 #| label: fig-experience-dic
-#| fig-cap: "Distribution of participants' cyber offending and hacking experience"
 #| fig-height: 2
 #| fig-width: 4
 #| fig-dpi: 500
@@ -1158,11 +1348,11 @@ fig_hacking_exp_dic <- df_ques_ |>
     labels = c("no", "yes")
   ) +
   labs(
-    title = "Hacking experience",
+    title = "Hacking experience (dich.)",
     x = NULL,
     y = NULL
   )
-print(fig_hacking_exp_dic)
+# print(fig_hacking_exp_dic)
 
 # Save the plot
 ggsave(
@@ -1178,10 +1368,8 @@ ggsave(
 ```
 
 ```{r}
-#| label: fig-experience
-#| include: false
+#| label: fig-experience-con
 #| warning: false
-#| fig-cap: "Distribution of participants' cyber offending and hacking experience"
 #| fig-height: 2
 #| fig-width: 4
 #| fig-dpi: 500
@@ -1191,7 +1379,7 @@ mean_hacking_exp <- mean(df_ques_$hacking_exp)
 sd_hacking_exp <- sd(df_ques_$hacking_exp)
 
 # Plot its distribution
-fig_hacking_exp <- df_ques_ |> 
+fig_hacking_exp_con <- df_ques_ |> 
   ggplot(mapping = aes(x = hacking_exp)) +
   geom_histogram(binwidth = 1) +
   geom_vline(
@@ -1206,17 +1394,23 @@ fig_hacking_exp <- df_ques_ |>
     parse = TRUE,
     size = 3
     ) +
-  scale_y_continuous(limits = c(0, 60)) +
+  scale_y_continuous(limits = c(0, 65)) +
+  scale_x_continuous(breaks = seq(
+    from = 0, 
+    to = 10, 
+    by = 2
+  )) +
   labs(
-    x = "Score",
+    title = "Hacking experience (cont.)",
+    x = "Times hacked in the past 12 months",
     y = NULL
   )
-print(fig_hacking_exp)
+# print(fig_hacking_exp_con)
 
 # Save the plot
 ggsave(
-  filename = "fig_hacking_exp.png",
-  plot = fig_hacking_exp,
+  filename = "fig_hacking_exp_con.png",
+  plot = fig_hacking_exp_con,
   device = "png",
   path = here("Output", "figures"),
   width = 4,
@@ -1225,6 +1419,40 @@ ggsave(
   dpi = 500
 )
 ```
+
+```{r}
+#| label: fig-experience
+#| fig-cap: "Distribution of participants' hacking experience in its continuous (a) and dichotomous (b) version"
+#| fig-height: 2
+#| fig-width: 8
+#| fig-dpi: 500
+
+fig_hacking_exp <- fig_hacking_exp_con + fig_hacking_exp_dic +
+  plot_annotation(tag_levels = "a")
+print(fig_hacking_exp)
+
+# Save the plot
+ggsave(
+  filename = "fig_hacking_exp.png",
+  plot = fig_hacking_exp,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 8,
+  height = 2,
+  units = "in",
+  dpi = 500
+)
+```
+
+We used the same questions as Weulen Kranenbarg and colleagues [-@weulenkranenbarg2019] to collect a series of self-reported hacking measures from participants. They were asked how often in the past 12 months they had engaged in the following five hacking behaviors without permission:
+
+-   breaking into or logging in to a network, computer or web account by guessing the password;
+-   gaining access in another way to a network, a computer, a web account or files stored on it;
+-   taking over a network, computer or web account;
+-   changing the content of a website or an online profile; and
+-   deleting, adding, damaging or modifying someone else's computer files.
+
+The question was presented as a matrix, and to facilitate understanding the behaviors, each type of hacking was presented as a brief description of a behavior with examples rather than a name or formal definition. For example, we asked *"How often in the past twelve months did you 'break into or log in to a network, computer or web account by guessing the password' without permission?"* Response options ranged from "0 times" to "5 or more", with the additional option of "I don't know". Due to the right-skewed distribution of the variable, we also decided to dichotomize it between 0 times (no experience) and at least one time (experience). @fig-experience shows the variable distribution in its continuous and dichotomous version, and indicates that one quarter of the participants had at least some hacking experience.
 
 ### Control variables
 
@@ -1275,6 +1503,7 @@ fig_age <- df_ques_ |>
     x = "Score",
     y = NULL
   )
+# print(fig_age)
 
 # Save the plot
 ggsave(
@@ -1327,6 +1556,7 @@ fig_education_dic <- df_ques_ |>
     x = NULL,
     y = NULL
   )
+# print(fig_education_dic)
 
 # Save the plot
 ggsave(
@@ -1376,6 +1606,8 @@ fig_length_sum <- df_efficiency |>
     x = "Score",
     y = NULL
   )
+# Present the plot
+# print(fig_length_sum)
 
 # Save the plot
 ggsave(
@@ -1416,7 +1648,13 @@ ggsave(
 )
 ```
 
+As control variables, we included an integer numerical measure of the age of the participants, a dichotomous measure of whether the area of their highest completed education is *informatics and IT*, or any other area as a reference category, and an integer numerical measure of the length of the sequences produced by the participants (@fig-controls). A recent quasi-experiment using virtual environments suggests that older burglars conduct more efficient searches than younger burglars [@meenaghan2023]. In the context of this study, it is possible that older participant have had more time to develop their IT skills, have more hacking experience and, therefore, are more efficient. The same rationale applies to those participants who have studied informatics and IT. In @sec-app-a we showed that the relationship between the efficiency indicators and the efficiency index varies as a function of sequence length---to the point of changing direction. Therefore, we deviated from the pre-registration and controlled for sequence length. In the preregistration, we also considered controlling whether participants sought outside help during the capture-the-flag exercise, but decided not to do so in order to keep the model as parsimonious as possible.
+
 ## Analytic strategy
+
+In the preregistration we indicated that we would perform a confirmatory factor analysis to test whether the three indicators of hacking efficiency belonged to the same latent construct and, if not, we would model each indicator separately. Finally, we decided not to perform this analysis and to fit an ordinary least squares (OLS) regression model to a single outcome variable for the sake of interpretability. Thus, we examined the relationship between the predictors (i.e., IT skills, and hacking experience) and the outcome (i.e., hacking efficiency), while controlling for the age of participants, their IT background, and sequence length. We standardized all variables in the model to have a mean of zero and a standard deviation of one in order to compare the impact of the predictors on the outcome. @sec-app-b presents the model diagnostics.
+
+Given that we pose directional hypotheses, we use one-tailed statistical significance tests with the standard threshold in the social sciences ($\alpha$ = 0.05). If we observe a positive and statistically significant relationship between hacking experience and the outcome after controlling for the other covariates, we will interpret this as support for H~1~; if we observe a positive and statistically significant relationship between IT skills and the outcome after controlling for the other covariates, we will interpret this as support for H~2~. If we find positive associations that are not statistically significant, we will not interpret these as support for the hypotheses but we will discuss the influence of sample size on the results. In any other case, we will reject the hypotheses. Because we use a cross-sectional research design, causal inferences are not warranted, so any support for the hypotheses will be interpreted with caution.
 
 # Results
 
@@ -1432,6 +1670,7 @@ df_analysis <- df_ques_ |>
     age,
     education_dic,
     itskills,
+    hacking_exp,
     hacking_exp_dic,
     visitp_nor,
     recu_inv_nor_m,
@@ -1445,9 +1684,12 @@ df_analysis <- df_ques_ |>
 #| label: tidy-model-efficiency
 
 # Create the model
-model_eff <- linear_reg()
-# Create recipe
-recipe_eff <- recipe(
+model_eff <- linear_reg() |> 
+  set_engine(engine = "lm") |> 
+  set_mode(mode = "regression")
+
+# Create recipe 1: dichotomous hacking experience
+recipe_eff_1 <- recipe(
   data = df_analysis, 
   formula = efficiency_nor ~
     itskills +
@@ -1460,23 +1702,44 @@ recipe_eff <- recipe(
     all_predictors(), 
     all_outcomes()
   )
-# Run the model
-results_eff <- workflow() |> 
+
+# Create recipe 2: continuous hacking experience
+recipe_eff_2 <- recipe(
+  data = df_analysis, 
+  formula = efficiency_nor ~
+    itskills +
+    hacking_exp +
+    age +
+    education_dic +
+    length_sum
+) |> 
+  step_normalize(
+    all_predictors(), 
+    all_outcomes()
+  )
+
+# Run the models
+# Model 1: dichotomous hacking experience
+results_eff_1 <- workflow() |> 
   add_model(model_eff) |> 
-  add_recipe(recipe_eff) |> 
+  add_recipe(recipe_eff_1) |> 
+  fit(df_analysis)
+# Model 2: continuous hacking experience
+results_eff_2 <- workflow() |> 
+  add_model(model_eff) |> 
+  add_recipe(recipe_eff_2) |> 
   fit(df_analysis)
 ```
 
 ```{r}
-#| label: tbl-model
-#| tbl-cap: OLS model results
+#| label: model-1
 
-tbl_model <- results_eff |> 
+model_1 <- results_eff_1 |> 
   tidy(conf.int = TRUE) |> 
   mutate(
     p.value.1t = p.value / 2,
     across(
-      .cols = where(is.numeric), 
+      .cols = where(is.numeric),
       .fns = ~ round(.x, digits = 3)
     )
   ) |> 
@@ -1491,29 +1754,156 @@ tbl_model <- results_eff |>
     ),
     ci_95 = paste0("[", conf.low, ", ", conf.high, "]")
   ) |> 
+  add_row(
+    term = "R-squared",
+    estimate = results_eff_1 |> glance() |> pull(r.squared) |> round(digits = 3)
+  ) |> 
+  add_row(
+    term = "Adjusted R-squared",
+    estimate = results_eff_1 |> glance() |> pull(adj.r.squared) |> round(digits = 3)
+  ) |>   
+  select(
+    term:estimate,
+    ci_95,
+    p.value.1t
+  ) 
+```
+
+```{r}
+#| label: model-2
+
+model_2 <- results_eff_2 |> 
+  tidy(conf.int = TRUE) |> 
+  mutate(
+    p.value.1t = p.value / 2,
+    across(
+      .cols = where(is.numeric), 
+      .fns = ~ round(.x, digits = 3)
+    )
+  ) |> 
+  mutate(
+    term = case_when(
+      term == "age" ~ "Age",
+      term == "itskills" ~ "IT skills",
+      term == "hacking_exp" ~ "Hacking experience",
+      term == "education_dic" ~ "IT education",
+      term == "length_sum" ~ "Sequence length",
+      .default = term
+    ),
+    ci_95 = paste0("[", conf.low, ", ", conf.high, "]")
+  ) |> 
+  add_row(
+    term = "R-squared",
+    estimate = results_eff_2 |> glance() |> pull(r.squared) |> round(digits = 3)
+  ) |> 
+  add_row(
+    term = "Adjusted R-squared",
+    estimate = results_eff_2 |> glance() |> pull(adj.r.squared) |> round(digits = 3)
+  ) |>  
   select(
     term:estimate,
     ci_95,
     p.value.1t
   )
+```
 
-tbl_model |> 
+```{r}
+#| label: tbl-model
+#| message: false
+#| tbl-cap: OLS models results
+
+model_1 |> 
+  bind_cols(model_2, .name_repair = "universal") |> 
+  select(- "term...5") |> 
   kable(
-    col.names = c("Variable", "Standardized $\\beta$", "[95% CI]", "One-tailed p-value"),
+    col.names = c("Variable", "Standardized $\\beta$", "[95% CI]", "One-tailed p-value", "Standardized $\\beta$", "[95% CI]", "One-tailed p-value"),
     booktabs = TRUE,
     linesep = ""
-  )
+  ) |> 
+  add_header_above(c(" " = 1, "Model 1\n(dich. hacking experience)" = 3, "Model 2\n(cont. hacking experience)" = 3))
 ```
+
+The model results are shown in @tbl-model. Model 1 uses the dichotomous version of hacking experience (as pre-registered), while Model 2 uses its continuous version. Regarding H~1~, the results of both models show that more IT skills are statistically significantly related to higher hacking efficiency. Holding all other variables constant, a one standard deviation increase in IT skills corresponds to a `r model_1 |> filter(term == "IT skills") |> pull(estimate) |> round(2)` standard deviation increase in efficiency in Model 1, and to a `r model_2 |> filter(term == "IT skills") |> pull(estimate) |> round(2)` in Model 2. Regarding H~2~, more hacking experience is not statistically significantly related to higher efficiency in either model. Considering the distance to the significance threshold, this may be due to a lack of statistical power. Within our sample, a one standard deviation increase in hacking experience corresponds to a `r model_1 |> filter(term == "Hacking experience") |> pull(estimate) |> round(2)` standard deviation increase in efficiency in Model 1, and to a `r model_2 |> filter(term == "Hacking experience") |> pull(estimate) |> round(2)` in Model 2. As for the control variables, longer sequence length is statistically significantly related to less efficiency in Model 1 but not in Model 2. A one standard deviation increase in sequence length corresponds to about a `r model_1 |> filter(term == "Sequence length") |> pull(estimate) |> round(2)` standard deviation decrease in efficiency in both models. Effect sizes for IT skills, hacking experience, and sequence length can be considered medium, small, and small respectively [@cohen1988]. The remaining control variables appear to be unrelated to efficiency.
+
+The coefficients of determination (Adjusted R-squared) indicate that these expertise models would explain between `r model_2 |> filter(term == "Adjusted R-squared") |> pull(estimate) |> round(2) * 100`% and `r model_1 |> filter(term == "Adjusted R-squared") |> pull(estimate) |> round(2) * 100`% of the variance in hacking efficiency.
 
 # Discussion
 
+```{r}
+#| label: power
+
+# Small, medium, and large effect sizes based on Cohen (1988)
+effect_size_f2 <- c(0.02, 0.15, 0.35)
+
+# Empty list to store the results of the power analysis
+l_effect_sizes <- vector(
+  mode = "list",
+  length = length(effect_size_f2)
+)
+
+# Empty vector to store sample sizes
+v_sample_sizes <- vector(
+  mode = "numeric",
+  length = length(effect_size_f2)
+)
+
+# Create a function to calculate `v` for each effect size
+sample_on_power <- function (effect_size) {
+  
+  for (size in seq_along(effect_size)) {
+    
+    l_effect_sizes[[size]] <- pwr.f2.test(
+      u = 5, 
+      v = NULL, 
+      f2 = effect_size[size], 
+      sig.level = 0.05, 
+      power = 0.8
+    )
+    
+    # sample size (n) = v + u + 1
+    v_sample_sizes[size] <- ceiling(l_effect_sizes[[size]]$v + l_effect_sizes[[size]]$u + 1)
+
+  }
+  
+  return (v_sample_sizes)
+  
+}
+
+# Calculate the estimated sample size for the specifications above
+v_sample_sizes <- sample_on_power(effect_size = effect_size_f2)
+```
+
+This pre-registered study tested whether the expertise paradigm [@nee2019] applied to cybercrime commission. For that purpose, we recruited a sample of IT security students to participate in an hour-long monitored challenge to deface a website made vulnerable by design. At the end of the exercise, we collected additional individual measures from the participants with an online questionnaire. We then examined the relationship between individual hacking experience, measured as the combination of hacking experience and IT skills, and hacking efficiency, measured as the sequence of phases of the kill chain followed by the participants. The findings suggest that the expertise paradigm may hold for potential hackers. In such case, rational choice perspectives aiming to explain cybercrime [e.g., @newman2003] should take criminal expertise into account.
+
+Regarding H~1~, we found that participants with more objective IT skills showed higher hacking efficiency. From an expertise paradigm, these domain-specific skills could provide potential hackers with a superior ability to recognize environmental cues that are useful during the exercise [@nee2015]. This result is consistent with the findings of Weulen Kranenbarg and colleagues [-@weulenkranenbarg2019], who suggest that there is a positive relationship between IT skills and cybercrime offending. Regarding H~2~, however, we did not find a significant association between having hacking experience and hacking efficiency (*p-value* = `r model_1 |> filter(term == "Hacking experience") |> pull("p.value.1t")`). Note that this result may be due to a lack of statistical power.[^4] As for the other factors examined, we found that older participants did not show greater hacking efficiency, which contrasts with the finding that older burglars performed more efficient searches inside houses [@meenaghan2023]. It is possible that we did not observe any differences because most participants were relatively young. We also found that participants whose last completed education was in informatics and IT did not show greater hacking efficiency. Another study found that having an IT background was not significantly related to cyber offending either [@weulenkranenbarg2018]. This suggests that IT skills are also developed outside the educational context, in which case peers may have an influence. Finally, we found that those participants who made more attempts to hack the website, measured as more kill chain phases covered, were significantly less efficient.
+
+[^4]: For a significance level of $\alpha$ = 0.05 and a desired power of 0.80, the sample size required to detect small ($f^2$ = 0.02), medium ($f^2$ = 015), and large ($f^2$ = 0.35) effect sizes using a generalized linear model [@cohen1988], would be `r v_sample_sizes[1]`, `r v_sample_sizes[2]`, and `r v_sample_sizes[3]`, respectively.
+
+The study is novel from both a theoretical and methodological perspective. First, it links a psychological paradigm used in criminology, the expertise paradigm [@nee2015], to a cybersecurity framework, the cyber kill chain [@hutchins2011], to advance the understanding of cybercriminal decision making. Second, the study proposes a new methodological approach to measure hacking efficiency. It uses sequence analysis [@ritschard2021]---a type of quantitative analysis with many applications in social sciences but seldom used in criminology---to measure actual efficiency and not simply self-reported metrics. Both innovations take advantage of the interdisciplinary nature of criminology.
+
 ## Theoretical contribution
+
+Following the broader trend of extending social science paradigms to explain cybercrime, the study extends the application of the expertise paradigm to cyberspace. We conceptualized hacking efficiency as the sequence of phases of the cyber kill chain followed during the hacking process [@hutchins2011], and measure it quantitatively using sequence analysis [@ritschard2021]. Here we measure a specific type of hack in which both motivation and target location are fixed. In this hack, the primary motivation is to commit the crime, but due to the relative inexperience of the participants, there is a secondary motivation that is preparatory. Since the target was fixed in the vulnerable website, participants could only decide how to carry out the hack. If the participants had been given complete freedom, as in the case of criminal hackers, we might have observed different modus operandi. It is also important to note that most criminological research focuses on completed crimes and thus overlooks why some attempts might fail, which could be useful for crime prevention. This research analyzed data from `r nrow(df_indicators_)` hacking attempts of IT students, and found them to be highly chaotic, meaning that a disorganized modus operandi may contribute to criminal failure.
+
+Criminologists pioneered the study of crime as sequences of decisions and actions, developing frameworks such as crime scripts [@cornish1993]. More recently, cybersecurity developed attack models known as kill chains [e.g., @hutchins2011], which serve as the cyber equivalent of crime scripts. Both frameworks have in common that they deconstruct the offending process into phases, which contributes to both understand its intricacies and identify key disruption points. Here we frame kill chains as a hacking process, in which efficiency varies depending on how offenders progress along the chain. In this study, we argued that progressing linearly along the chain would be the most efficient way to hack, but we could not provide direct evidence for this. However, by monitoring participants in real time as they attempted to hack a website, we did uncover complex sequences of decisions based on their behavior that we associated with indicators of hacking efficiency. Quantitatively analyzing these sequences revealed differences based on the proportion of phases they visit, the phases they repeat, and the extent to which they progress along the sequence. This could be the initial step to define a typology of hackers based on their hacking efficiency (e.g., efficient, reversed, persistent, careful, chaotic, lucky, stuck, inefficient; see Appendix A).
+
+Our findings suggest that the hacking process does not follow the cyber kill chain linearly, but may actually be more chaotic. Attackers may navigate back and forth within the kill chain, trying various techniques and looking for new targets until they make tangible progress. When attempting to convey simplified offending processes using linear models like the cyber kill chain, we misrepresent the crime commission process for offenders who do not follow a linear pattern of behavior, unintentionally perpetuating biased or unrealistic portrayals of crime. Actually observing behavior with methods such as video, virtual reality, or monitoring software---rather than presenting a simplified, scripted model of crime---can help determine how structured offenders actually behave. For example, a study conducted in a virtual environment found that inexperienced burglars exhibit chaotic search patterns inside the house [@nee2019]. The chaotic nature of cyber offending is also acknowledged by the unified kill chain: "advanced attacks can be regarded as phased progressions, but individual attack phases may be bypassed, occur more than once or occur out of sequence" [@pols2023, p. 14]. We found that inexperienced hackers go back and forth during the hack, repeating phases of the kill chain, retracing their steps, and even skipping some phases that are supposed to be sequential. Such non-linear crime commission processes would have implications for situational crime prevention [@clarke1980]. On the one hand, there may be recurring steps in which the measures can multiply their effect; on the other, there may be steps that do not occur in the expected sequence or are outright omitted. This would render the effect of the measures limited or null. It is therefore important not only to identify the crime steps, but also to weight their importance within the sequence in scripts and chains.
 
 ## Limitations
 
+This study implemented a novel method for monitoring of cybercriminal behavior in real time. The combination of capture-the-flag exercises and monitoring software allows to collect objective measures of online behavior, which are more accurate than self-reported measures [@parry2021], and thus overcome some of the previous research limitations. In doing so, however, we encountered unique challenges. One of the challenges was recruiting participants for the study, as the capture-the-flag task was time consuming and required a hard to find hacking skill set. We intended to recruit 100 participants, but in the end we got valid responses from 69, which can be considered a small sample size. Another challenge was to classify the behavior of the participants into kill chain phases. For this purpose, we recruited IT security experts and provided them with instructions and a semi-automated tool for the classification task. The task proved arduous, as it was sometimes possible to classify the same behavior into different categories of the kill chain. For example, hitting the 'a' key can mean different things. It could be an option to 'use' or 'list all' in a tool, or it could be input to a web application. In addition, many of the keystrokes recorded lacked context, were not correctly spelled, or were halfway through. This is comparable to the challenges of natural language processing, where a word may have a different meaning depending on the part of speech it is in, where words have to be corrected without knowing the intent of the writer, or where incomplete words may result in different words when completed. Anticipating a low degree of agreement among the experts, we pre-registered a criterion to favor certainty over uncertainty when classifying keystrokes, and called on a third expert to resolve disagreements. Overall, the task posed a challenge to the experts that may have a direct impact on the results. Future research should consider developing more detailed coding schemes and providing training to experts.
+
+Other limitations were inherent to the keylogger we used. Firstly, the keylogger we used did not record the keystrokes that were entered into the second VM because it was running the Kali Linux operating system. This was an oversight in the piloting phase of the study. To mitigate this limitation, we had to manually collect the commands entered into the command line of this VM. These keystrokes were ordered sequentially, but did not have a time stamp, which prevented us from being able to merge them with the rest of the keystrokes. We opted to create distinct sequences for these commands instead. This solution had no impact on measures such as proportion of visited states or sequence length, but likely affected others such as recurrence and degradation. Although command line keystrokes are arguably the most relevant, it is important to note that in the second VM we did not log keystrokes entered in other applications. As a result, the analyzed sequences were incomplete. And secondly, we operationalized each stage of the kill chain by analyzing sets of keystrokes originating from the same program, as identified by the keylogger. Typically, these sets of keystrokes conclude with a mouse click or the enter key, indicating an instruction to the computer. We considered this criterion to be appropriate for this study. However, it is possible to interpret several instructions as part of the same phase, potentially grouping several phases together. Alternatively, a temporal criterion could be employed to operationalize a phase (i.e., the set of actions performed every 30 seconds). In such cases, it could be challenging to classify multiple actions into a single phase, as they may correspond to several phases simultaneously. The challenge for the researchers lies in defining the unit of analysis in sequences of actions, such as the crime commission process.
+
+Finally, our model is limited in accounting for predictors of hacking such as self-control and peer influence, commonly found in the criminological literature [e.g., @holt2012]. The effect of self-control may be especially relevant in criminal hackers, while peer influence plays an important role in hacking communities. It is possible that self-control influences factors such as concentration and patience, which would in turn affect decision making. For example, hackers with lower self-control may follow the kill chain more chaotically than those with high self-control. On the other hand, we considered including a peer influence variable that measures the solicitation of external help during the hacking exercise, but we discarded the possibility after reasoning that it was endogenous to efficiency, since it would be part of resource management. Aside from possible parsimony problems, it is possible that these variables would have increased the explanatory power of our hacking expertise model.
+
 ## Future research directions
 
-# Appendix A {#sec-app-a}
+Since this is the first study of its kind, we anticipate many future lines of research. Regarding theory, it is crucial to investigate the applicability of paradigms such as Expertise, which were originally conceived for traditional criminals, in the context of cybercriminals. Current research is uncovering similarities and differences between these two types of offenders [@weulenkranenbarg2019; @weulenkranenbarg2021; @weulenkranenbarg2018], which could be crucial in determining whether current criminological theories can explain cybercrime or whether new ones are needed. Regarding methods, it would be interesting to explore the possibility of combining kill chains [@hutchins2011] with crime journeys [@bernasco2014] and crime scripts [@cornish1993] to obtain an integrated analytic framework useful for social sciences and computer sciences. This would make findings comparable across disciplines. In addition, it would be useful to develop a process, either automated (e.g., machine learning) or manual (e.g., coding scheme) to improve the classification of online behaviors into kill chain phases. Regarding research design, other types of capture-the-flag exercises would allow the study of other cybercrime types in which, for example, the type of crime is different, or the target is not fixed in advance. In addition, having participants perform a hacking task until they succeed or give up would allow to examine the crime-comission process without the time pressure imposed by our research design. Studies in computer labs are ideal for testing experimental conditions related to criminological theory such as the rational choice perspective [@clarke1985], since they would allow manipulation of conditions such as the effort made during the crime or the rewards obtained at the end. Regarding samples, more expert hackers, whether criminal or ethical, should be recruited to increase the internal validity of the findings. Larger samples would increase the statistical power, which in turn would increase the reliability of the findings. In sum, this study has the potential to spearhead a field of research that could achieve several breakthroughs.
+
+More broadly, our findings show that the process of crime commission may not be as linear as previously thought, but rather quite disorderly. This invites the wider criminological audience to assess whether sequence analysis [@ritschard2021] can contribute to the advancement of the discipline by showing how crime actually unfolds.
+
+# Appendix A. Simulated sequence scenarios {#sec-app-a}
 
 ```{r}
 #| label: tbl-scenarios
@@ -1657,6 +2047,7 @@ df_theoretical_indicators <- as_tibble(seqindic(
   with.missing = FALSE,
   prec.args = list(pow = FALSE)
 )) |> 
+  # filter(Recu != is.nan(Recu)) |>  
   mutate(
     # Rename sequence length
     length = Lgth,
@@ -1672,6 +2063,10 @@ df_theoretical_indicators <- as_tibble(seqindic(
     efficiency_nor = normalize_minmax(efficiency)
   )   
 ```
+
+In this section we examine in depth how the hacking indicators combine to produce the hacking efficiency index. To do so, below we simulate data, analyze it and examine different theoretical scenarios.
+
+Since we suspected that sequence length might change the way the indicators relate to each other, which would directly affect the interpretability of the index, we simulated all possible combinations of kill chain phases for all sequences of up to seven phases ($7 + 7 ^ 2 + 7 ^ 3 + 7 ^ 4 + 7 ^ 5 + 7 ^ 6 + 7 ^ 7$ = `r nrow(df_theoretical_indicators)`) and drew a random sample of 1050 observations with replacement, clustered by sequence length, to experiment with. The combination of the three indicators, based on their highest and lowest possible values, can result in eight possible theoretical scenarios of efficiency. For reference, we named each scenario in @tbl-scenarios and ranked them according to how many efficiency conditions they meet.
 
 ```{r}
 #| label: theoretical-indicators
@@ -1704,6 +2099,8 @@ df_theoretical_indicators_sample <- df_theoretical_indicators |>
 
 # Create a plot for each pair of variables to understand how the indicators and sequence length behave
 fig_theoretical_rel <- df_theoretical_indicators_sample |>
+  # filter(length > 3) |>
+  # filter(recu_inv_nor != 1) |>
   GGally::ggpairs(
     mapping = aes(alpha = .1),
     columnLabels = c("Normalized proportion of visited states", "Normalized inverted recurrence", "Normalized degradation", "Normalized efficiency", "Sequence length"),
@@ -1754,6 +2151,8 @@ cor_theor_recuyes_vis_rec <- cor.test(
   df_theoretical_indicators_sample |> filter(recu_inv_nor != 1) |> pull(recu_inv_nor)
 )
 ```
+
+@fig-theoretical-rel shows the pairwise correlation and plot matrix between the three efficiency indicators, the efficiency index, and the sequence length. The diagonal shows the distribution of each variable using a kernel density estimator. We note a significant negative correlation between normalized proportion of visited states and normalized inverted recurrence (*r* = `r round(cor_theor_vis_rec$estimate, 3)`; *p* = `r round(cor_theor_vis_rec$p.value, 3)`), suggesting the three efficiency indicators should not be combined into a single construct. This relationship disappears when removing sequences shorter than three phases (*r* = `r round(cor_theor_leng3_vis_rec$estimate, 3)`; *p* = `r round(cor_theor_leng3_vis_rec$p.value, 3)`), and even flips when removing sequences with no recurrence (*r* = `r round(cor_theor_recuyes_vis_rec$estimate, 3)`; *p* = `r round(cor_theor_recuyes_vis_rec$p.value, 3)`) or sequences shorter than four phases (*r* = `r round(cor_theor_leng4_vis_rec$estimate, 3)`; *p* = `r round(cor_theor_leng4_vis_rec$p.value, 3)`). Note that any of these three conditions is present in `r round((df_theoretical_indicators_sample |> filter(recu_inv_nor == 1 | length < 4) |> count() |> pull() / nrow(df_theoretical_indicators_sample)) * 100, 1)`% of the sample analyzed. We also found a positive and significant correlation between sequence length and normalized efficiency suggesting that we should adjust for sequence length to account for efficiency.
 
 ```{r}
 #| label: tbl-scenario-cluster
@@ -1806,36 +2205,377 @@ df_theoretical_clusters |>
   add_header_above(c(" " = 2, "Distribution" = 2, "Normalized efficiency" = 4))
 ```
 
-# Appendix B {#sec-app-b}
+We then proceeded with the full set of sequences to explore the correspondence between the efficiency of the simulated observations and the theoretical scenarios. We operationalized the high and low conditions of each indicator using a quantitative criterion. We considered indicators with values $\ge$ 0.5 as high and indicators with values $<$ 0.5 as low. For example, *reversed* scenarios should have a normalized proportion of visited states value $\ge$ 0.5, a normalized reversed recurrence value $\ge$ 0.5, and a normalized degradation value $<$ 0.5. This strategy allowed us to assign each observation to a theoretical scenario and examine the distribution. @tbl-scenario-cluster shows the distribution of all possible scenarios along with the efficiency index. Because of how the indicators covary (@fig-theoretical-rel), it turns out that not all theoretical scenarios are possible. The *persistent* and *chaotic* scenarios are impossible. In line with our conceptualization, we observed that more theoretically efficient scenarios are also associated with a higher efficiency index.
+
+# Appendix B. Model diagnostics and robustness checks {#sec-app-b}
 
 ```{r}
-#| label: fig-diagnostics
+#| label: fig-diagnostics-1
 #| fig-cap: "Diagnostics of linearity, normality, and influential values for the OLS model"
 #| fig-height: 2.5
 #| fig-width: 8
 #| fig-dpi: 500
 
-diag <- lm(
+# Diagnostics for model 1
+diag_1 <- lm(
   data = df_analysis, 
   formula = efficiency_nor ~ 
     itskills +
     hacking_exp_dic +
     age +
-    education_dic
+    education_dic +
+    length_sum
 )
 
 # Save the plot
 png(
-  filename = here("Output", "figures", "fig_diagnostics.png"),
+  filename = here("Output", "figures", "fig_diagnostics_1.png"),
   width = 8,
   height = 2.5,
   units = "in",
   res = 500
 )
 par(mfrow = c(1, 3))
-plot(diag, which = c(1, 2, 5))
+plot(diag_1, which = c(1, 2, 5))
 dev.off()
 ```
+
+```{r}
+#| label: fig-diagnostics-2
+#| fig-cap: "Diagnostics of linearity, normality, and influential values for the OLS model"
+#| fig-height: 2.5
+#| fig-width: 8
+#| fig-dpi: 500
+
+# Diagnostics for model 2
+diag_2 <- lm(
+  data = df_analysis, 
+  formula = efficiency_nor ~ 
+    itskills +
+    hacking_exp +
+    age +
+    education_dic +
+    length_sum
+)
+
+# Save the plot
+png(
+  filename = here("Output", "figures", "fig_diagnostics_2.png"),
+  width = 8,
+  height = 2.5,
+  units = "in",
+  res = 500
+)
+par(mfrow = c(1, 3))
+plot(diag_2, which = c(1, 2, 5))
+dev.off()
+```
+
+@fig-diagnostics-1 and @fig-diagnostics-2 show the model diagnostics of the two OLS models for---from left to right---linearity, normality, and influential values. The somewhat horizontal red line in the "Residual vs Fitted" plots shows that the relationship between the predicted values and the residuals may be linear. This suggests that a generalized linear model like OLS may therefore be a good approach to model such a relationship. The distribution of observations along the dashed line in the "Normal Q-Q" plots shows good alignment between the distribution of theoretical quantiles and standardized residuals, suggesting that the models meet the assumption of normality. The dashed lines in the "Residuals vs Leverage" plot show the threshold to determine if there are any outliers that may influence the model results. In the first model, observations 10, 26, and 68 may be considered outliers but not influential, whereas in the second model two observations, 10, 26, and 60 may be considered outliers but again not influential.
+
+```{r}
+#| label: influential-values
+
+# Extract the regular model objects
+lm_1 <- results_eff_1$fit$fit$fit
+lm_2 <- results_eff_2$fit$fit$fit
+
+# Calculate the DFBETAS and identify influential values
+# For model 1 
+lm_1_dfb <- dfbetas(lm_1) |> 
+  as_tibble() |> 
+  rename_with(.fn = ~ paste0("dfb_", .x)) |> 
+  mutate(
+    across(
+    .cols = everything(), 
+    .fns = ~ as.numeric(abs(.) > 2 / sqrt(n()))
+  ),
+  influential = dfb_itskills + dfb_hacking_exp_dic + dfb_age + dfb_education_dic + dfb_length_sum
+  )
+
+# For model 2
+lm_2_dfb <- dfbetas(lm_2) |> 
+  as_tibble() |> 
+  rename_with(.fn = ~ paste0("dfb_", .x)) |> 
+  mutate(
+    across(
+    .cols = everything(), 
+    .fns = ~ as.numeric(abs(.) > 2 / sqrt(n()))
+  ),
+  influential = dfb_itskills + dfb_hacking_exp + dfb_age + dfb_education_dic + dfb_length_sum
+  )
+
+# 16 influential observations have been identified. In both models, two observations (10 and 56), are influential in the coefficients of 4 or more variables. Upon manual inspection, we observe no anomalies in these observations.
+
+# Store the row numbers where influential values have been identified
+# For model 1
+v_influential_lm_1 <- lm_1_dfb |> 
+  rowid_to_column() |> 
+  filter(influential > 0) |> 
+  pull(rowid)
+
+# For model 2
+v_influential_lm_2 <- lm_2_dfb |> 
+  rowid_to_column() |> 
+  filter(influential > 0) |> 
+  pull(rowid)
+```
+
+```{r}
+#| label: fig-influential
+#| fig-cap: "DFBETAS and thresholds for influential values"
+#| fig-heigth: 3
+#| fig-width: 8
+#| fig-dpi: 500
+#| warning: false
+
+# Re-arrange the dfbeta results for plotting
+fig_dfbetas <- dfbetas(lm_1) |> 
+  as_tibble() |> 
+  mutate(model = "one") |> 
+  rowid_to_column() |> 
+  bind_rows(
+    dfbetas(lm_2) |> 
+      as_tibble() |> 
+      mutate(model = "two") |> 
+      rowid_to_column()
+  ) |> 
+  select(- "(Intercept)") |> 
+  pivot_longer(cols = where(is.double)) |> 
+  mutate(influential = abs(value) > 2 / sqrt(nobs(lm_1))) |> 
+  # Plot the dfbetas with a threshold for influential values
+  ggplot(mapping = aes(
+    x = rowid,
+    y = value,
+    color = influential
+  )) +
+  geom_point(alpha = .5) +
+  geom_hline(
+    yintercept = c(-1, 1) * 2 / sqrt(nobs(lm_1)),
+    linetype = 2
+  ) +
+  # scale_color_viridis_d() +
+  scale_color_manual(values = c("#440154FF", "#21908CFF")) +
+  labs(
+    x = NULL,
+    y = "*DFBETAS*"
+  ) +
+  facet_grid(
+    rows = vars(model), 
+    cols = vars(name),
+    labeller = as_labeller(c(
+      "one" = "model\n1", 
+      "two" = "model\n2",
+      "age" = "age",
+      "education_dic" = "IT education",
+      "hacking_exp" = "hacking exp.\n(continuous)",
+      "hacking_exp_dic" = "hacking exp.\n(dichotomous)",
+      "itskills" = "IT skills",
+      "length_sum" = "sequence length"
+    ))
+  ) +
+  theme(
+    axis.title.y = ggtext::element_markdown(
+      vjust = .5,
+      angle = 0
+    ),
+    strip.text.y = element_text(
+      hjust = .5,
+      angle = 0
+    ),
+    legend.position = "none"
+  )
+print(fig_dfbetas)
+
+# Save the plot
+ggsave(
+  filename = "fig_dfbetas.png",
+  plot = fig_dfbetas,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 8,
+  height = 3,
+  units = "in",
+  dpi = 500
+)
+```
+
+In addition to assessing whether the observations in our sample can be considered influential with Cook's distance, we computed DFBETAS. DFBETAS serve to quantify change in the regression estimates when each observation is individually excluded from the analysis. When the change is greater than a threshold determined by $2 / \sqrt n$, the excluded observation can be considered influential [@belsley1980]. @fig-influential shows the DFBETAS that exceed this threshold, which correspond to 16 observations.
+
+```{r}
+#| label: fun-influential
+
+# Create a function to run as many models as influential values have been observed, but excluding the influential values one at a time
+lm_wo_influential <- function (data, model, recipe, rownames) {
+  
+  # Create an empty list of the same length as the vector of influential values to store the data frames
+  l_models <- vector(
+    mode = "list",
+    length = length(rownames)
+  )
+  
+  # Loop over each row containing influential values to remove it and create a subset of the data
+  for (row in rownames) {
+    
+    model_wo_influential <- data |>
+      rowid_to_column() |>
+      filter(rowid != row)
+    
+    l_models[[row]] <- model_wo_influential
+    
+    # Compact the list to make sure there are no empty elements
+    l_models <- compact(l_models)
+    
+    # Create another empty list of the same length as the vector of influential values to store the models
+    l_models_fit <- vector(
+      mode = "list",
+      length = length(rownames)
+    )
+    
+    # Fit a model for each of the data sets
+    for (dataset in seq_along(l_models)) {
+      
+      l_models_fit[[dataset]] <- workflow() |> 
+        add_model(model) |> 
+        add_recipe(recipe) |> 
+        fit(l_models[[dataset]])
+      
+    }
+
+  }
+
+  return (l_models_fit)
+  
+}
+
+# Use the function with the specifications for model 1
+l_lm_1_wo_influential <- lm_wo_influential(
+  data = df_analysis,
+  model = model_eff,
+  recipe = recipe_eff_1,
+  rownames = v_influential_lm_1
+)
+
+# Use the function with the specifications for model 2
+l_lm_2_wo_influential <- lm_wo_influential(
+  data = df_analysis,
+  model = model_eff,
+  recipe = recipe_eff_2,
+  rownames = v_influential_lm_2
+)
+```
+
+```{r}
+#| label: influential-coefs
+
+# Create a function to extract the coefficients of all the models without one influential value at a time, and store them into a data frame
+coefs_wo_influential <- function (list) {
+  
+  # Create an empty list of the same length as the list of models
+  l_coef_wo_influential <- vector(
+    mode = "list",
+    length = length(list)
+  )
+  
+  # Loop over each model to extract the tidied coefficients
+  for (coefs in seq_along(list)) {
+    
+    l_coef_wo_influential[[coefs]] <- tidy(
+      list[[coefs]], 
+      conf.int = TRUE
+    )
+    
+  }
+  
+  return (l_coef_wo_influential)
+  
+}
+
+# Arrange all coefficients from model 1 into a data frame
+df_coefs_1_wo_influential <- coefs_wo_influential(list = l_lm_1_wo_influential) |> 
+  bind_rows() |> 
+  mutate(model = "one without influential cases") |> 
+  filter(term != "(Intercept)")
+
+# Arrange all coefficients from model 2 into a data frame
+df_coefs_2_wo_influential <- coefs_wo_influential(list = l_lm_2_wo_influential) |> 
+  bind_rows() |> 
+  mutate(model = "two without influential cases") |> 
+  filter(term != "(Intercept)")
+
+# Merge both data frames into a single one
+df_coefs_wo_influential <- df_coefs_1_wo_influential |> bind_rows(df_coefs_2_wo_influential) |> 
+  # Add the actual estimates from model 1
+  bind_rows(
+    results_eff_1 |> 
+      tidy(conf.int = TRUE) |> 
+      mutate(model = "one") |> 
+      filter(term != "(Intercept)")
+  ) |> 
+  # Add the actual estimates from model 1
+  bind_rows(
+    results_eff_2 |> 
+      tidy(conf.int = TRUE) |> 
+      mutate(model = "two") |> 
+      filter(term != "(Intercept)")
+  )
+```
+
+```{r}
+#| label: fig-model-coefs
+#| fig-cap: "Model estimates with and without influential observations"
+#| fig-heigth: 3
+#| fig-width: 8
+#| fig-dpi: 500
+
+fig_model_coefs <- df_coefs_wo_influential |> 
+  ggplot(mapping = aes(
+    x = term,
+    y = estimate,
+    ymin = conf.low,
+    ymax = conf.high,
+    group = model,
+    color = model
+  )) +
+  geom_pointrange(
+    alpha = .2,
+    position = position_dodge(width = 0.5)
+  ) +
+  geom_hline(
+    yintercept = 0,
+    linetype = 2
+  ) +
+  scale_x_discrete(labels = c("age", "IT education", "hacking exp.\n(continuous)", "hacking exp.\n(dichotomous)", "IT skills", " sequence length")) +
+  scale_y_continuous(limits = c(-1, 1)) +
+  scale_color_viridis_d(name = "Model") +
+  labs(
+    x = NULL,
+    # Try unicode if the greek symbol fails to display
+    y = "Standardized *β*<br>with 95% CI"
+  ) +
+  theme(
+    axis.title.y = ggtext::element_markdown(
+      vjust = .5,
+      angle = 0
+    ),
+    legend.position = "bottom"
+  )
+print(fig_model_coefs)
+
+# Save the plot
+ggsave(
+  filename = "fig_model_coefs.png",
+  plot = fig_model_coefs,
+  device = "png",
+  path = here("Output", "figures"),
+  width = 8,
+  height = 3,
+  units = "in",
+  dpi = 500
+)
+```
+
+To determine the impact of these influential values on the model estimates, we performed an additional robustness check. @fig-model-coefs shows the estimates of the full models, as well as those of the 16 models in which we remove one of the influential observations at a time. As can be seen, the observations considered influential by the dfbetas are in fact not so, as the variance of the standardized betas and their 95% CI is minimal in all cases. These results suggest that the results presented in models one and two are robust.
 
 # References {.unnumbered}
 
@@ -1844,71 +2584,7 @@ dev.off()
 
 ```{r}
 #| label: session
+#| include: FALSE
 
 sessionInfo()
 ```
-
-R version 4.3.0 (2023-04-21 ucrt)
-Platform: x86_64-w64-mingw32/x64 (64-bit)
-Running under: Windows Server 2016 x64 (build 14393)
-
-Matrix products: default
-
-
-locale:
-[1] LC_COLLATE=Dutch_Netherlands.1252  LC_CTYPE=Dutch_Netherlands.1252   
-[3] LC_MONETARY=Dutch_Netherlands.1252 LC_NUMERIC=C                      
-[5] LC_TIME=Dutch_Netherlands.1252    
-
-time zone: Europe/Amsterdam
-tzcode source: internal
-
-attached base packages:
-[1] stats     graphics  grDevices utils     datasets  methods   base     
-
-other attached packages:
- [1] TraMineR_2.2-7     forcats_1.0.0      stringr_1.5.0     
- [4] readr_2.1.4        tidyverse_2.0.0    yardstick_1.2.0   
- [7] workflowsets_1.0.1 workflows_1.1.3    tune_1.1.1        
-[10] tidyr_1.3.0        tibble_3.2.1       rsample_1.1.1     
-[13] recipes_1.0.6      purrr_1.0.1        parsnip_1.1.0     
-[16] modeldata_1.1.0    infer_1.0.4        ggplot2_3.4.2     
-[19] dplyr_1.1.2        dials_1.2.0        scales_1.2.1      
-[22] broom_1.0.5        tidymodels_1.1.0   patchwork_1.1.2   
-[25] lubridate_1.9.2    knitr_1.43         kableExtra_1.3.4  
-[28] icr_0.6.3          here_1.0.1         ggseqplot_0.8.2   
-
-loaded via a namespace (and not attached):
- [1] Rdpack_2.4          permute_0.9-7       rlang_1.1.1        
- [4] magrittr_2.0.3      furrr_0.3.1         compiler_4.3.0     
- [7] mgcv_1.8-42         systemfonts_1.0.4   vctrs_0.6.3        
-[10] lhs_1.1.6           rvest_1.0.3         crayon_1.5.2       
-[13] pkgconfig_2.0.3     fastmap_1.1.1       ellipsis_0.3.2     
-[16] backports_1.4.1     labeling_0.4.2      utf8_1.2.3         
-[19] rmarkdown_2.22      tzdb_0.4.0          prodlim_2023.03.31 
-[22] ragg_1.2.5          bit_4.0.5           xfun_0.39          
-[25] cachem_1.0.8        jsonlite_1.8.5      progress_1.2.2     
-[28] highr_0.10          reshape_0.8.9       prettyunits_1.1.1  
-[31] parallel_4.3.0      cluster_2.1.4       R6_2.5.1           
-[34] bslib_0.5.0         stringi_1.7.12      RColorBrewer_1.1-3 
-[37] GGally_2.1.2        parallelly_1.36.0   boot_1.3-28.1      
-[40] rpart_4.1.19        jquerylib_0.1.4     Rcpp_1.0.10        
-[43] iterators_1.0.14    future.apply_1.11.0 Matrix_1.5-4       
-[46] splines_4.3.0       nnet_7.3-18         timechange_0.2.0   
-[49] tidyselect_1.2.0    rstudioapi_0.14     vegan_2.6-4        
-[52] timeDate_4022.108   codetools_0.2-19    listenv_0.9.0      
-[55] lattice_0.21-8      plyr_1.8.8          withr_2.5.0        
-[58] evaluate_0.21       future_1.33.0       survival_3.5-5     
-[61] xml2_1.3.4          pillar_1.9.0        foreach_1.5.2      
-[64] generics_0.1.3      vroom_1.6.3         rprojroot_2.0.3    
-[67] hms_1.1.3           munsell_0.5.0       globals_0.16.2     
-[70] class_7.3-21        glue_1.6.2          tools_4.3.0        
-[73] data.table_1.14.8   gower_1.0.1         webshot_0.5.5      
-[76] grid_4.3.0          rbibutils_2.2.13    ipred_0.9-14       
-[79] colorspace_2.1-0    nlme_3.1-162        cli_3.6.1          
-[82] DiceDesign_1.9      textshaping_0.3.6   fansi_1.0.4        
-[85] viridisLite_0.4.2   svglite_2.1.1       lava_1.7.2.1       
-[88] gtable_0.3.3        GPfit_1.0-8         sass_0.4.6         
-[91] digest_0.6.32       farver_2.1.1        htmltools_0.5.5    
-[94] lifecycle_1.0.3     hardhat_1.3.0       httr_1.4.6         
-[97] bit64_4.0.5         MASS_7.3-58.4 
