@@ -8,3 +8,6 @@
 
 # Description
 A repository containing the R code to reproduce the analyses of the paper "Criminal Expertise and Hacking Efficiency".
+
+# Open Science Framework (OSF) Repository
+For instructions on setting up and running the code, visit our OSF project: [OSF Project Link](https://doi.org/10.17605/OSF.IO/TR6VY).
